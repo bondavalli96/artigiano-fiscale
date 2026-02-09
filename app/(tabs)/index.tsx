@@ -5,14 +5,17 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useArtisan } from "@/hooks/useArtisan";
 import { supabase } from "@/lib/supabase";
-import { getGreeting, formatCurrency } from "@/lib/utils/format";
+import { getGreeting, formatCurrency, formatDateShort } from "@/lib/utils/format";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { EmptyState } from "@/components/EmptyState";
+import type { InvoiceActive } from "@/types";
 
 export default function DashboardScreen() {
   const { artisan, loading: artisanLoading } = useArtisan();
@@ -26,6 +29,7 @@ export default function DashboardScreen() {
     monthIncome: 0,
     monthExpenses: 0,
   });
+  const [overdueInvoices, setOverdueInvoices] = useState<InvoiceActive[]>([]);
 
   const fetchStats = useCallback(async () => {
     if (!artisan) return;
@@ -55,11 +59,15 @@ export default function DashboardScreen() {
         .single();
 
       // Overdue invoices
-      const { count: overdueCount } = await supabase
+      const { data: overdueData, count: overdueCount } = await supabase
         .from("invoices_active")
-        .select("id", { count: "exact", head: true })
+        .select("*, client:clients(*)", { count: "exact" })
         .eq("artisan_id", artisan.id)
-        .eq("status", "overdue");
+        .eq("status", "overdue")
+        .order("payment_due", { ascending: true })
+        .limit(5);
+
+      setOverdueInvoices(overdueData || []);
 
       // Month income (paid invoices this month)
       const startOfMonth = new Date();
@@ -177,25 +185,79 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
-        {/* Warning section */}
+        {/* Overdue invoices section */}
         {stats.overdueCount > 0 && (
           <View className="px-5 mb-4">
             <View className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <View className="flex-row items-center">
+              <View className="flex-row items-center mb-3">
                 <MaterialCommunityIcons
                   name="alert-circle"
                   size={20}
                   color="#dc2626"
                 />
                 <Text className="text-danger font-semibold ml-2">
-                  Attenzione
+                  Da incassare ({stats.overdueCount})
                 </Text>
               </View>
-              <Text className="text-sm text-red-700 mt-1">
-                Hai {stats.overdueCount} fattur
-                {stats.overdueCount === 1 ? "a" : "e"} scadut
-                {stats.overdueCount === 1 ? "a" : "e"}
-              </Text>
+              {overdueInvoices.map((inv) => {
+                const daysOverdue = inv.payment_due
+                  ? Math.floor(
+                      (Date.now() - new Date(inv.payment_due).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  : 0;
+                return (
+                  <View
+                    key={inv.id}
+                    className="flex-row items-center justify-between py-2 border-b border-red-100"
+                  >
+                    <View className="flex-1 mr-2">
+                      <Text className="text-sm font-medium text-red-900">
+                        {inv.invoice_number}
+                      </Text>
+                      {inv.client && (
+                        <Text className="text-xs text-red-700">
+                          {inv.client.name}
+                        </Text>
+                      )}
+                      <Text className="text-xs text-red-500">
+                        {daysOverdue > 0
+                          ? `${daysOverdue} giorni di ritardo`
+                          : "Scaduta"}
+                      </Text>
+                    </View>
+                    <Text className="text-sm font-bold text-red-900 mr-3">
+                      {formatCurrency(inv.total)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        try {
+                          await supabase.functions.invoke("send-reminder", {
+                            body: {
+                              artisanId: artisan?.id,
+                              invoiceId: inv.id,
+                            },
+                          });
+                          await Haptics.notificationAsync(
+                            Haptics.NotificationFeedbackType.Success
+                          );
+                          Alert.alert(
+                            "Sollecito inviato",
+                            `Sollecito per ${inv.invoice_number} registrato`
+                          );
+                        } catch {
+                          Alert.alert("Errore", "Invio sollecito fallito");
+                        }
+                      }}
+                      className="bg-red-600 rounded-lg px-3 py-1.5"
+                    >
+                      <Text className="text-xs text-white font-medium">
+                        Sollecita
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
