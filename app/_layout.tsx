@@ -13,6 +13,7 @@ import "react-native-reanimated";
 import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useColorScheme } from "@/components/useColorScheme";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -54,6 +55,7 @@ function RootLayoutNav() {
         <ThemeProvider
           value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
         >
+          <OfflineBanner />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
