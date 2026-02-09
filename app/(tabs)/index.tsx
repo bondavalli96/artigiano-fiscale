@@ -14,6 +14,7 @@ import { useArtisan } from "@/hooks/useArtisan";
 import { supabase } from "@/lib/supabase";
 import { getGreeting, formatCurrency, formatDateShort } from "@/lib/utils/format";
 import { DashboardSummary } from "@/components/DashboardSummary";
+import { AISuggestionBanner } from "@/components/AISuggestionBanner";
 import { EmptyState } from "@/components/EmptyState";
 import type { InvoiceActive } from "@/types";
 
@@ -151,6 +152,11 @@ export default function DashboardScreen() {
           <Text className="text-2xl font-bold text-gray-900">
             {getGreeting()}, {artisan.business_name.split(" ")[0]}!
           </Text>
+        </View>
+
+        {/* AI Suggestion */}
+        <View className="px-5 mb-2">
+          <AISuggestionBanner maxSuggestions={1} />
         </View>
 
         {/* Stats cards */}
