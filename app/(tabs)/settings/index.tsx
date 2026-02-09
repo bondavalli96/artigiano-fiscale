@@ -61,6 +61,23 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          onPress={() => router.push("/(tabs)/settings/clients" as any)}
+          className="bg-white mx-4 rounded-xl p-4 mb-2 flex-row items-center"
+        >
+          <MaterialCommunityIcons
+            name="account-group"
+            size={24}
+            color="#6b7280"
+          />
+          <Text className="flex-1 ml-3 text-base">Clienti</Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={24}
+            color="#d1d5db"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={handleSignOut}
           className="bg-white mx-4 rounded-xl p-4 mt-8 flex-row items-center justify-center"
         >
