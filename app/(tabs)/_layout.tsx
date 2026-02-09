@@ -1,57 +1,88 @@
-import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+import { Tabs } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        tabBarActiveTintColor: "#2563eb",
+        tabBarInactiveTintColor: "#6b7280",
+        tabBarStyle: {
+          borderTopColor: "#e5e7eb",
+          paddingBottom: 4,
+          height: 56,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
+        headerShown: true,
+        headerTitleStyle: {
+          fontWeight: "700",
+        },
+      }}
+      screenListeners={{
+        tabPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="jobs"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: "Lavori",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="hammer" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="quotes"
+        options={{
+          title: "Preventivi",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="file-document-outline"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="invoices"
+        options={{
+          title: "Fatture",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="currency-eur"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Altro",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cog" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
