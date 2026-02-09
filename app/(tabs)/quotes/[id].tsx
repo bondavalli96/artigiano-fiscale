@@ -34,6 +34,7 @@ export default function QuoteDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [sendingPdf, setSendingPdf] = useState(false);
   const [isAIDraft, setIsAIDraft] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   // Load existing quote or fetch job to generate one
   useEffect(() => {
@@ -305,6 +306,113 @@ export default function QuoteDetailScreen() {
     }
   }, [artisan, job, quote, items, vatRate, notes, validUntil]);
 
+  // Convert accepted quote to invoice
+  const handleConvertToInvoice = useCallback(async () => {
+    if (!artisan || !quote) return;
+
+    setConverting(true);
+    try {
+      // Generate invoice number
+      const { count } = await supabase
+        .from("invoices_active")
+        .select("id", { count: "exact", head: true })
+        .eq("artisan_id", artisan.id);
+
+      const invoiceNumber = `FT-${new Date().getFullYear()}-${String(
+        (count || 0) + 1
+      ).padStart(3, "0")}`;
+
+      // Payment due = 30 days from now
+      const paymentDue = new Date();
+      paymentDue.setDate(paymentDue.getDate() + 30);
+
+      // Generate invoice PDF
+      const { data: pdfData } = await supabase.functions.invoke(
+        "generate-pdf",
+        {
+          body: {
+            type: "invoice",
+            number: invoiceNumber,
+            artisan: {
+              business_name: artisan.business_name,
+              vat_number: artisan.vat_number,
+              fiscal_code: artisan.fiscal_code,
+              address: artisan.address,
+              phone: artisan.phone,
+              email: artisan.email,
+              sdi_code: artisan.sdi_code,
+            },
+            client: quote.client
+              ? {
+                  name: quote.client.name,
+                  address: quote.client.address,
+                  phone: quote.client.phone,
+                  email: quote.client.email,
+                }
+              : job?.client
+              ? {
+                  name: job.client.name,
+                  address: job.client.address,
+                  phone: job.client.phone,
+                  email: job.client.email,
+                }
+              : undefined,
+            items: quote.items,
+            subtotal: quote.subtotal,
+            vat_rate: quote.vat_rate,
+            vat_amount: quote.vat_amount,
+            total: quote.total,
+            payment_due: formatDateShort(paymentDue),
+            date: formatDateShort(new Date()),
+          },
+        }
+      );
+
+      const { error } = await supabase.from("invoices_active").insert({
+        quote_id: quote.id,
+        artisan_id: artisan.id,
+        client_id: quote.client_id || null,
+        invoice_number: invoiceNumber,
+        status: "sent",
+        items: quote.items,
+        subtotal: quote.subtotal,
+        vat_rate: quote.vat_rate,
+        vat_amount: quote.vat_amount,
+        total: quote.total,
+        payment_due: paymentDue.toISOString().split("T")[0],
+        pdf_url: pdfData?.pdfUrl || null,
+      });
+
+      if (error) throw error;
+
+      // Update job status
+      if (job) {
+        await supabase
+          .from("jobs")
+          .update({ status: "invoiced" })
+          .eq("id", job.id);
+      }
+
+      await Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      );
+      Alert.alert(
+        "Fattura Creata",
+        `Fattura ${invoiceNumber} creata con successo`,
+        [
+          {
+            text: "Vai alle Fatture",
+            onPress: () => router.push("/(tabs)/invoices" as any),
+          },
+        ]
+      );
+    } catch (err: any) {
+      Alert.alert("Errore", err.message || "Errore durante la conversione");
+    } finally {
+      setConverting(false);
+    }
+  }, [artisan, quote, job]);
+
   if (loading) {
     return (
       <>
@@ -434,36 +542,55 @@ export default function QuoteDetailScreen() {
 
         {/* Bottom actions */}
         {items.length > 0 && (
-          <View className="bg-white border-t border-gray-100 px-5 py-4 flex-row gap-3">
-            <TouchableOpacity
-              onPress={() => handleSave(false)}
-              disabled={saving}
-              className="flex-1 border border-primary rounded-xl py-3.5 items-center"
-              activeOpacity={0.8}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : (
-                <Text className="text-primary font-semibold">
-                  Salva Bozza
-                </Text>
-              )}
-            </TouchableOpacity>
+          <View className="bg-white border-t border-gray-100 px-5 py-4">
+            {quote?.status === "accepted" ? (
+              <TouchableOpacity
+                onPress={handleConvertToInvoice}
+                disabled={converting}
+                className="bg-success rounded-xl py-4 items-center"
+                activeOpacity={0.8}
+              >
+                {converting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white text-lg font-semibold">
+                    Crea Fattura
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  onPress={() => handleSave(false)}
+                  disabled={saving}
+                  className="flex-1 border border-primary rounded-xl py-3.5 items-center"
+                  activeOpacity={0.8}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color="#2563eb" />
+                  ) : (
+                    <Text className="text-primary font-semibold">
+                      Salva Bozza
+                    </Text>
+                  )}
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => handleSave(true)}
-              disabled={saving || sendingPdf}
-              className="flex-1 bg-primary rounded-xl py-3.5 items-center"
-              activeOpacity={0.8}
-            >
-              {sendingPdf ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text className="text-white font-semibold">
-                  Genera PDF e Invia
-                </Text>
-              )}
-            </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleSave(true)}
+                  disabled={saving || sendingPdf}
+                  className="flex-1 bg-primary rounded-xl py-3.5 items-center"
+                  activeOpacity={0.8}
+                >
+                  {sendingPdf ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text className="text-white font-semibold">
+                      Genera PDF e Invia
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>
