@@ -1,28 +1,42 @@
 {
   "expo": {
-    "name": "artigiano-app",
+    "name": "ArtigianoAI",
     "slug": "artigiano-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "artigianoapp",
+    "scheme": "artigianoai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#2563eb"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.artigianoai.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "ArtigianoAI usa il microfono per registrare descrizioni vocali dei lavori.",
+        "NSCameraUsageDescription": "ArtigianoAI usa la fotocamera per fotografare lavori e fatture.",
+        "NSPhotoLibraryUsageDescription": "ArtigianoAI accede alla libreria foto per allegare immagini ai lavori."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#2563eb"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.artigianoai.app",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -30,7 +44,28 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ArtigianoAI accede alle foto per allegare immagini ai lavori.",
+          "cameraPermission": "ArtigianoAI usa la fotocamera per fotografare lavori e fatture."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "ArtigianoAI usa il microfono per registrare descrizioni vocali dei lavori."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#2563eb"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
