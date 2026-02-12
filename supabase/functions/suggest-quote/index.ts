@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { jobDescription, priceList, artisanTrade } = await req.json();
+    const { jobDescription, priceList, artisanTrade, locale = "it" } = await req.json();
 
     if (!jobDescription) {
       return new Response(
@@ -25,30 +25,32 @@ Deno.serve(async (req) => {
     }
 
     const trade = artisanTrade || "artigiano";
+
+    const noPriceText: Record<string, string> = {
+      it: "prezzo non definito",
+      en: "price not set",
+      es: "precio no definido",
+      pt: "preço não definido",
+    };
+    const noListText: Record<string, string> = {
+      it: "Nessun listino disponibile",
+      en: "No price list available",
+      es: "Sin lista de precios disponible",
+      pt: "Sem lista de preços disponível",
+    };
+
     const priceListText =
       priceList && priceList.length > 0
         ? priceList
             .map(
               (p: { description: string; unit: string; default_price: number | null }) =>
-                `- ${p.description} (${p.unit}): ${p.default_price ? `€${p.default_price}` : "prezzo non definito"}`
+                `- ${p.description} (${p.unit}): ${p.default_price ? `€${p.default_price}` : noPriceText[locale]}`
             )
             .join("\n")
-        : "Nessun listino disponibile";
+        : noListText[locale];
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5-20250929",
-        max_tokens: 2048,
-        messages: [
-          {
-            role: "user",
-            content: `Sei un assistente per un ${trade} italiano. Basandoti sulla descrizione del lavoro e sul listino dell'artigiano, genera una bozza di preventivo.
+    const prompts: Record<string, string> = {
+      it: `Sei un assistente per un ${trade} italiano. Basandoti sulla descrizione del lavoro e sul listino dell'artigiano, genera una bozza di preventivo.
 
 Descrizione lavoro: "${jobDescription}"
 
@@ -69,6 +71,86 @@ Regole:
 - Non inventare lavorazioni non richieste
 
 Rispondi SOLO con un JSON array valido, nessun testo aggiuntivo.`,
+      en: `You are an assistant for an ${trade}. Based on the job description and the tradesperson's price list, generate a draft quote.
+
+Job description: "${jobDescription}"
+
+Available price list:
+${priceListText}
+
+Generate a JSON array of quote items. For each item:
+- description: item description (string)
+- quantity: estimated quantity (number)
+- unit: unit of measure (hours, pieces, meters, square meter, flat rate)
+- unit_price: suggested unit price in euros (number, based on price list if available)
+- total: quantity × unit price (number)
+
+Rules:
+- Use ONLY items consistent with the described job
+- If the price list has a price, use it. Otherwise estimate a reasonable price.
+- Include labor, necessary materials, and travel if appropriate
+- Don't invent unnecessary work
+
+Reply ONLY with a valid JSON array, no additional text.`,
+      es: `Eres un asistente para un ${trade}. Basándote en la descripción del trabajo y la lista de precios del artesano, genera un borrador de presupuesto.
+
+Descripción trabajo: "${jobDescription}"
+
+Lista de precios disponible:
+${priceListText}
+
+Genera un array JSON de partidas del presupuesto. Para cada partida:
+- description: descripción de la partida (string)
+- quantity: cantidad estimada (número)
+- unit: unidad de medida (horas, piezas, metros, metro cuadrado, forfait)
+- unit_price: precio unitario sugerido en euros (número, basado en la lista si disponible)
+- total: cantidad × precio unitario (número)
+
+Reglas:
+- Usa SOLO partidas coherentes con el trabajo descrito
+- Si la lista tiene un precio, úsalo. Si no, estima un precio razonable.
+- Incluye mano de obra, materiales necesarios y desplazamiento si es apropiado
+- No inventes trabajos no solicitados
+
+Responde SOLO con un array JSON válido, sin texto adicional.`,
+      pt: `És um assistente para um ${trade}. Com base na descrição do trabalho e na lista de preços do artesão, gera um rascunho de orçamento.
+
+Descrição trabalho: "${jobDescription}"
+
+Lista de preços disponível:
+${priceListText}
+
+Gera um array JSON de itens do orçamento. Para cada item:
+- description: descrição do item (string)
+- quantity: quantidade estimada (número)
+- unit: unidade de medida (horas, peças, metros, metro quadrado, forfait)
+- unit_price: preço unitário sugerido em euros (número, baseado na lista se disponível)
+- total: quantidade × preço unitário (número)
+
+Regras:
+- Usa APENAS itens coerentes com o trabalho descrito
+- Se a lista tiver um preço, usa-o. Caso contrário estima um preço razoável.
+- Inclui mão de obra, materiais necessários e deslocação se apropriado
+- Não inventes trabalhos não solicitados
+
+Responde APENAS com um array JSON válido, sem texto adicional.`,
+    };
+    const prompt = prompts[locale] || prompts.it;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 2048,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
           },
         ],
       }),
