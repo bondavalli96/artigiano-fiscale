@@ -315,3 +315,63 @@ Per ogni errore: leggi messaggio, fixa codice, ri-deploya, ri-testa.
 1. Build compila > Pagine si caricano > Interazioni funzionano > Dati salvati
 2. Fix errori critici prima, warning dopo
 3. Se un test richiede device nativo (voce, fotocamera), segnalalo nel report
+
+---
+
+## 🔄 ITERAZIONE 2 — MIGLIORAMENTI PROGRESSIVI
+
+### Status Iterazione 1:
+✅ Tutte le fasi R0-R12 completate
+✅ ES e PT aggiunti al sistema (struttura)
+⚠️ ES e PT contengono ancora testo inglese (non tradotti)
+⚠️ Bug documentati ma non fixati
+
+### Obiettivi Iterazione 2:
+1. **Tradurre realmente ES e PT** — Usare AI per tradurre tutte le ~635 chiavi
+2. **Fix bug jobs list refresh** — Lista lavori non si aggiorna dopo creazione  
+3. **Verificare funzionamento completo** — Test end-to-end
+
+---
+
+### FASE I2-1: TRADUZIONE SPAGNOLO (ES) — REALE
+
+**Obiettivo:** Tradurre tutte le chiavi da EN a ES con terminologia corretta.
+
+**Strategia:**
+- Tradurre l'oggetto ES completo usando Claude
+- Mantenere terminologia per artigiani spagnoli:
+  - "P.IVA" → "NIF/CIF"
+  - "Codice Fiscale" → "DNI/NIE"  
+  - "Invoice" → "Factura"
+  - "Quote" → "Presupuesto"
+- Tono pratico e colloquiale (no gergo tecnico)
+- Salvare in file temporaneo, poi sostituire in translations.ts
+
+---
+
+### FASE I2-2: TRADUZIONE PORTOGHESE (PT) — REALE
+
+**Obiettivo:** Tradurre tutte le chiavi da EN a PT con terminologia corretta.
+
+**Strategia:**
+- Tradurre l'oggetto PT completo usando Claude
+- Mantenere terminologia per artigiani portoghesi:
+  - "P.IVA" → "NIF"
+  - "Codice Fiscale" → "NIF"
+  - "Invoice" → "Fatura"
+  - "Quote" → "Orçamento"
+- Tono pratico e colloquiale
+- Salvare in file temporaneo, poi sostituire in translations.ts
+
+---
+
+### FASE I2-3: TEST E VERIFICA FINALE
+
+**Obiettivo:** Verificare che le traduzioni funzionano correttamente.
+
+**Azioni:**
+1. Build TypeScript per verificare nessun errore
+2. Test cambio lingua IT → EN → ES → PT
+3. Verifica Edge Functions rispondono in tutte le lingue
+4. Commit finale
+
