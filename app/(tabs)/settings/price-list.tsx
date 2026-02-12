@@ -13,13 +13,16 @@ import * as Haptics from "expo-haptics";
 import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
 import { formatCurrency } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n";
 import type { PriceListItem } from "@/types";
 
 export default function PriceListScreen() {
   const { artisan } = useArtisan();
+  const { t, locale } = useI18n();
   const [items, setItems] = useState<PriceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newDesc, setNewDesc] = useState("");
   const [newUnit, setNewUnit] = useState("ore");
   const [newPrice, setNewPrice] = useState("");
@@ -62,15 +65,50 @@ export default function PriceListScreen() {
       setAdding(false);
       fetchItems();
     } catch (err: any) {
-      Alert.alert("Errore", err.message);
+      Alert.alert(t("error"), err.message);
+    }
+  };
+
+  const startEdit = (item: PriceListItem) => {
+    setEditingId(item.id);
+    setNewDesc(item.description);
+    setNewUnit(item.unit);
+    setNewPrice(item.default_price ? String(item.default_price) : "");
+    setAdding(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingId || !newDesc.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("price_list")
+        .update({
+          description: newDesc.trim(),
+          unit: newUnit,
+          default_price: parseFloat(newPrice) || null,
+        })
+        .eq("id", editingId);
+
+      if (error) throw error;
+      await Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      );
+      setNewDesc("");
+      setNewPrice("");
+      setAdding(false);
+      setEditingId(null);
+      fetchItems();
+    } catch (err: any) {
+      Alert.alert(t("error"), err.message);
     }
   };
 
   const handleDelete = async (id: string) => {
-    Alert.alert("Elimina", "Vuoi eliminare questa voce?", [
-      { text: "Annulla", style: "cancel" },
+    Alert.alert(t("delete"), t("deleteItem"), [
+      { text: t("cancel"), style: "cancel" },
       {
-        text: "Elimina",
+        text: t("delete"),
         style: "destructive",
         onPress: async () => {
           await supabase.from("price_list").delete().eq("id", id);
@@ -84,9 +122,9 @@ export default function PriceListScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Listino Prezzi" }} />
+        <Stack.Screen options={{ title: t("priceListTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Caricamento...</Text>
+          <Text className="text-muted">{t("loading")}</Text>
         </View>
       </>
     );
@@ -94,7 +132,7 @@ export default function PriceListScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Listino Prezzi" }} />
+      <Stack.Screen options={{ title: t("priceListTitle") }} />
       <View className="flex-1 bg-gray-50">
         <FlatList
           data={items}
@@ -105,7 +143,8 @@ export default function PriceListScreen() {
               <View className="bg-white mx-4 mb-3 rounded-xl p-4 border border-primary">
                 <TextInput
                   className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50 mb-2"
-                  placeholder="Descrizione voce..."
+                  placeholder={t("itemDescPlaceholder")}
+                  placeholderTextColor="#9ca3af"
                   value={newDesc}
                   onChangeText={setNewDesc}
                   autoFocus
@@ -113,13 +152,15 @@ export default function PriceListScreen() {
                 <View className="flex-row gap-2 mb-3">
                   <TextInput
                     className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-                    placeholder="Unità (ore, pezzi...)"
+                    placeholder={t("unitPlaceholder")}
+                    placeholderTextColor="#9ca3af"
                     value={newUnit}
                     onChangeText={setNewUnit}
                   />
                   <TextInput
                     className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-                    placeholder="Prezzo €"
+                    placeholder={t("priceEur")}
+                    placeholderTextColor="#9ca3af"
                     keyboardType="decimal-pad"
                     value={newPrice}
                     onChangeText={setNewPrice}
@@ -127,23 +168,32 @@ export default function PriceListScreen() {
                 </View>
                 <View className="flex-row gap-2">
                   <TouchableOpacity
-                    onPress={() => setAdding(false)}
+                    onPress={() => {
+                      setAdding(false);
+                      setEditingId(null);
+                    }}
                     className="flex-1 border border-gray-300 rounded-xl py-2.5 items-center"
                   >
-                    <Text className="text-gray-600">Annulla</Text>
+                    <Text className="text-gray-600">{t("cancel")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={handleAdd}
+                    onPress={editingId ? handleUpdate : handleAdd}
                     className="flex-1 bg-primary rounded-xl py-2.5 items-center"
                   >
-                    <Text className="text-white font-semibold">Aggiungi</Text>
+                    <Text className="text-white font-semibold">
+                      {editingId ? t("save") : t("add")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : null
           }
           renderItem={({ item }) => (
-            <View className="bg-white mx-4 mb-2 rounded-xl p-4 flex-row items-center">
+            <TouchableOpacity
+              onPress={() => startEdit(item)}
+              className="bg-white mx-4 mb-2 rounded-xl p-4 flex-row items-center"
+              activeOpacity={0.7}
+            >
               <View className="flex-1">
                 <Text className="text-base font-medium">
                   {item.description}
@@ -152,13 +202,13 @@ export default function PriceListScreen() {
                   {item.unit}
                   {item.category ? ` · ${item.category}` : ""}
                   {item.usage_count > 0
-                    ? ` · usata ${item.usage_count}x`
+                    ? ` · ${t("usedCount", { count: String(item.usage_count) })}`
                     : ""}
                 </Text>
               </View>
               {item.default_price && (
                 <Text className="text-base font-semibold text-primary mr-3">
-                  {formatCurrency(item.default_price)}
+                  {formatCurrency(item.default_price, locale)}
                 </Text>
               )}
               <TouchableOpacity
@@ -171,12 +221,12 @@ export default function PriceListScreen() {
                   color="#ef4444"
                 />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View className="items-center py-8">
               <Text className="text-muted">
-                Nessuna voce nel listino
+                {t("noItems")}
               </Text>
             </View>
           }
@@ -192,7 +242,7 @@ export default function PriceListScreen() {
             >
               <MaterialCommunityIcons name="plus" size={20} color="white" />
               <Text className="text-white text-base font-semibold ml-2">
-                Nuova Voce
+                {t("newItem")}
               </Text>
             </TouchableOpacity>
           </View>

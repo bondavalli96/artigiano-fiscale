@@ -11,9 +11,11 @@ import { Stack, useLocalSearchParams, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n";
 import type { Job } from "@/types";
 
 export default function JobDetailScreen() {
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export default function JobDetailScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Dettaglio" }} />
+        <Stack.Screen options={{ title: t("jobDetail") }} />
         <View className="flex-1 items-center justify-center bg-white">
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
@@ -45,9 +47,9 @@ export default function JobDetailScreen() {
   if (!job) {
     return (
       <>
-        <Stack.Screen options={{ title: "Dettaglio" }} />
+        <Stack.Screen options={{ title: t("jobDetail") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Lavoro non trovato</Text>
+          <Text className="text-muted">{t("jobNotFound")}</Text>
         </View>
       </>
     );
@@ -67,7 +69,7 @@ export default function JobDetailScreen() {
 
         {job.client && (
           <View className="bg-gray-50 rounded-xl p-3 mb-4">
-            <Text className="text-xs text-muted">Cliente</Text>
+            <Text className="text-xs text-muted">{t("client")}</Text>
             <Text className="text-base font-medium">{job.client.name}</Text>
             {job.client.phone && (
               <Text className="text-sm text-muted">{job.client.phone}</Text>
@@ -76,13 +78,13 @@ export default function JobDetailScreen() {
         )}
 
         <Text className="text-xs text-muted mb-4">
-          Creato il {formatDate(job.created_at)}
+          {t("createdOn", { date: formatDate(job.created_at) })}
         </Text>
 
         {job.description && (
           <View className="mb-4">
             <Text className="text-sm font-semibold text-gray-700 mb-1">
-              Descrizione
+              {t("description")}
             </Text>
             <Text className="text-base text-gray-600">{job.description}</Text>
           </View>
@@ -91,7 +93,7 @@ export default function JobDetailScreen() {
         {job.transcription && (
           <View className="mb-4 bg-blue-50 rounded-xl p-3">
             <Text className="text-sm font-semibold text-primary mb-1">
-              🎤 Trascrizione vocale
+              🎤 {t("voiceTranscription")}
             </Text>
             <Text className="text-sm text-gray-700">{job.transcription}</Text>
           </View>
@@ -101,7 +103,7 @@ export default function JobDetailScreen() {
         {job.photos && job.photos.length > 0 && (
           <View className="mb-4">
             <Text className="text-sm font-semibold text-gray-700 mb-2">
-              Foto ({job.photos.length})
+              {t("photos", { count: String(job.photos.length) })}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {job.photos.map((url, index) => (
@@ -120,30 +122,30 @@ export default function JobDetailScreen() {
         {job.ai_extracted_data && (
           <View className="bg-blue-50 rounded-xl p-4 mb-4">
             <Text className="text-sm font-semibold text-primary mb-2">
-              🤖 Dati estratti dall'AI
+              🤖 {t("aiExtractedData")}
             </Text>
             {job.ai_extracted_data.tipo_lavoro && (
               <Text className="text-sm mb-1">
-                <Text className="font-medium">Tipo: </Text>
+                <Text className="font-medium">{t("type")}: </Text>
                 {job.ai_extracted_data.tipo_lavoro}
               </Text>
             )}
-            {job.ai_extracted_data.materiali &&
+            {Array.isArray(job.ai_extracted_data.materiali) &&
               job.ai_extracted_data.materiali.length > 0 && (
                 <Text className="text-sm mb-1">
-                  <Text className="font-medium">Materiali: </Text>
+                  <Text className="font-medium">{t("materials")}: </Text>
                   {job.ai_extracted_data.materiali.join(", ")}
                 </Text>
               )}
             {job.ai_extracted_data.urgenza && (
               <Text className="text-sm mb-1">
-                <Text className="font-medium">Urgenza: </Text>
+                <Text className="font-medium">{t("urgency")}: </Text>
                 {job.ai_extracted_data.urgenza}
               </Text>
             )}
             {job.ai_extracted_data.note && (
               <Text className="text-sm">
-                <Text className="font-medium">Note: </Text>
+                <Text className="font-medium">{t("notes")}: </Text>
                 {job.ai_extracted_data.note}
               </Text>
             )}
@@ -162,7 +164,7 @@ export default function JobDetailScreen() {
             activeOpacity={0.8}
           >
             <Text className="text-white text-lg font-semibold">
-              Crea Preventivo →
+              {t("createQuote")}
             </Text>
           </TouchableOpacity>
         </View>

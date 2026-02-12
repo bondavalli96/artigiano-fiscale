@@ -1,0 +1,27 @@
+Da: ordini@termoidraulica-lombarda.it
+Oggetto: Conferma ordine #ORD-2026-1234 - Consegna prevista 14/02
+
+Gentile Cliente,
+confermiamo il Suo ordine come segue:
+
+Ordine: #ORD-2026-1234
+Data ordine: 10/02/2026
+
+Articoli ordinati:
+- 1x Caldaia Baxi Luna Duo-Tec 28kW    €1.450,00
+- 1x Kit fumi sdoppiato 80/80           €145,00
+- 2x Termosifone alluminio 8 elementi   €178,00 cad.
+- 1x Valvola termostatica kit (10pz)    €89,00
+
+Subtotale: €2.040,00
+Spedizione: GRATUITA
+IVA 22%: €448,80
+TOTALE ORDINE: €2.488,80
+
+Consegna prevista: 14/02/2026 (corriere BRT)
+Indirizzo consegna: Via Workshop 5, 20100 Milano
+
+Pagamento: Ricevuta bancaria 60gg
+
+Cordiali saluti,
+Termoidraulica Lombarda S.p.A.

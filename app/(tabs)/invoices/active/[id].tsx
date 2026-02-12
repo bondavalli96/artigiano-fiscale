@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
@@ -15,21 +15,27 @@ import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate, formatDateShort } from "@/lib/utils/format";
+import { QuickShareButtons } from "@/components/QuickShareButtons";
+import { useI18n } from "@/lib/i18n";
+import { recalculateClientReliability } from "@/lib/utils/reliability";
 import type { InvoiceActive, QuoteItem } from "@/types";
 
-const TIMELINE_STEPS = [
-  { key: "draft", label: "Bozza", icon: "📝" },
-  { key: "sent", label: "Inviata", icon: "📤" },
-  { key: "paid", label: "Pagata", icon: "✅" },
-];
-
 export default function InvoiceActiveDetailScreen() {
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { artisan } = useArtisan();
+
+  const TIMELINE_STEPS = [
+    { key: "draft", label: t("invoiceDraft"), icon: "📝" },
+    { key: "sent", label: t("invoiceSent"), icon: "📤" },
+    { key: "paid", label: t("invoicePaid"), icon: "✅" },
+  ];
   const [invoice, setInvoice] = useState<InvoiceActive | null>(null);
   const [loading, setLoading] = useState(true);
   const [markingPaid, setMarkingPaid] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchInvoice = useCallback(async () => {
     const { data } = await supabase
@@ -49,12 +55,12 @@ export default function InvoiceActiveDetailScreen() {
     if (!invoice) return;
 
     Alert.alert(
-      "Conferma pagamento",
-      "Vuoi segnare questa fattura come pagata?",
+      t("confirmPayment"),
+      t("confirmPaymentMsg"),
       [
-        { text: "Annulla", style: "cancel" },
+        { text: t("cancel"), style: "cancel" },
         {
-          text: "Conferma",
+          text: t("confirm"),
           onPress: async () => {
             setMarkingPaid(true);
             try {
@@ -67,12 +73,16 @@ export default function InvoiceActiveDetailScreen() {
                 .eq("id", invoice.id);
 
               if (error) throw error;
+              // Recalculate client reliability based on payment history
+              if (invoice.client_id) {
+                await recalculateClientReliability(invoice.client_id);
+              }
               await Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success
               );
               fetchInvoice();
             } catch (err: any) {
-              Alert.alert("Errore", err.message);
+              Alert.alert(t("error"), err.message);
             } finally {
               setMarkingPaid(false);
             }
@@ -84,7 +94,7 @@ export default function InvoiceActiveDetailScreen() {
 
   const handleSharePdf = async () => {
     if (!invoice?.pdf_url) {
-      Alert.alert("Errore", "Nessun PDF disponibile");
+      Alert.alert(t("error"), t("noPdfAvailable"));
       return;
     }
 
@@ -103,7 +113,7 @@ export default function InvoiceActiveDetailScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert("Errore", err.message);
+      Alert.alert(t("error"), err.message);
     } finally {
       setSharing(false);
     }
@@ -113,12 +123,12 @@ export default function InvoiceActiveDetailScreen() {
     if (!invoice || !artisan) return;
 
     Alert.alert(
-      "Invia Sollecito",
-      `Vuoi inviare un sollecito per la fattura ${invoice.invoice_number}?`,
+      t("sendReminderTitle"),
+      t("sendReminderMsg", { number: invoice.invoice_number }),
       [
-        { text: "Annulla", style: "cancel" },
+        { text: t("cancel"), style: "cancel" },
         {
-          text: "Invia",
+          text: t("send"),
           onPress: async () => {
             try {
               await supabase
@@ -132,15 +142,91 @@ export default function InvoiceActiveDetailScreen() {
               await Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success
               );
-              Alert.alert("Inviato", "Sollecito registrato");
+              Alert.alert(t("reminderSent"), t("reminderRecorded"));
               fetchInvoice();
             } catch (err: any) {
-              Alert.alert("Errore", err.message);
+              Alert.alert(t("error"), err.message);
             }
           },
         },
       ]
     );
+  };
+
+  const handleDuplicate = async () => {
+    if (!invoice || !artisan) return;
+
+    setDuplicating(true);
+    try {
+      const { count } = await supabase
+        .from("invoices_active")
+        .select("id", { count: "exact", head: true })
+        .eq("artisan_id", artisan.id);
+
+      const newNumber = `FT-${new Date().getFullYear()}-${String(
+        (count || 0) + 1
+      ).padStart(3, "0")}`;
+
+      const { data: duplicated, error } = await supabase
+        .from("invoices_active")
+        .insert({
+          quote_id: invoice.quote_id,
+          artisan_id: invoice.artisan_id,
+          client_id: invoice.client_id,
+          invoice_number: newNumber,
+          status: "draft",
+          items: invoice.items,
+          subtotal: invoice.subtotal,
+          vat_rate: invoice.vat_rate,
+          vat_amount: invoice.vat_amount,
+          total: invoice.total,
+          payment_due: invoice.payment_due,
+          pdf_url: invoice.pdf_url,
+        })
+        .select("*, client:clients(*)")
+        .single();
+
+      if (error) throw error;
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setInvoice(duplicated);
+      Alert.alert(t("saved"), t("invoiceDuplicated"));
+    } catch (err: any) {
+      Alert.alert(t("error"), err.message || t("saveError"));
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!invoice) return;
+
+    Alert.alert(t("delete"), t("deleteInvoiceConfirm"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("delete"),
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            const { error } = await supabase
+              .from("invoices_active")
+              .delete()
+              .eq("id", invoice.id);
+            if (error) throw error;
+
+            await Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success
+            );
+            router.replace("/(tabs)/invoices" as any);
+          } catch (err: any) {
+            Alert.alert(t("error"), err.message || t("saveError"));
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
   };
 
   const getTimelineIndex = () => {
@@ -153,7 +239,7 @@ export default function InvoiceActiveDetailScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Fattura" }} />
+        <Stack.Screen options={{ title: t("invoiceTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
@@ -164,9 +250,9 @@ export default function InvoiceActiveDetailScreen() {
   if (!invoice) {
     return (
       <>
-        <Stack.Screen options={{ title: "Fattura" }} />
+        <Stack.Screen options={{ title: t("invoiceTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Fattura non trovata</Text>
+          <Text className="text-muted">{t("invoiceNotFound")}</Text>
         </View>
       </>
     );
@@ -195,7 +281,7 @@ export default function InvoiceActiveDetailScreen() {
         {/* Timeline */}
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
           <Text className="text-xs font-semibold text-muted mb-3">
-            STATO FATTURA
+            {t("invoiceStatus")}
           </Text>
           <View className="flex-row items-center justify-between">
             {TIMELINE_STEPS.map((step, i) => (
@@ -229,7 +315,7 @@ export default function InvoiceActiveDetailScreen() {
         {/* Client info */}
         {invoice.client && (
           <View className="bg-gray-50 rounded-xl p-3 mb-4">
-            <Text className="text-xs text-muted">Cliente</Text>
+            <Text className="text-xs text-muted">{t("client")}</Text>
             <Text className="text-base font-medium">
               {invoice.client.name}
             </Text>
@@ -243,7 +329,7 @@ export default function InvoiceActiveDetailScreen() {
 
         {/* Items */}
         <Text className="text-sm font-semibold text-gray-700 mb-2">
-          Voci fattura
+          {t("invoiceItems")}
         </Text>
         {invoice.items.map((item: QuoteItem, index: number) => (
           <View
@@ -265,19 +351,19 @@ export default function InvoiceActiveDetailScreen() {
         {/* Totals */}
         <View className="mt-4 pt-4 border-t border-gray-200">
           <View className="flex-row justify-between mb-1">
-            <Text className="text-sm text-muted">Imponibile</Text>
+            <Text className="text-sm text-muted">{t("subtotal")}</Text>
             <Text className="text-sm">{formatCurrency(invoice.subtotal)}</Text>
           </View>
           <View className="flex-row justify-between mb-1">
             <Text className="text-sm text-muted">
-              IVA ({invoice.vat_rate}%)
+              {t("vatRate", { rate: String(invoice.vat_rate) })}
             </Text>
             <Text className="text-sm">
               {formatCurrency(invoice.vat_amount)}
             </Text>
           </View>
           <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-200">
-            <Text className="text-xl font-bold">TOTALE</Text>
+            <Text className="text-xl font-bold">{t("total")}</Text>
             <Text className="text-xl font-bold text-primary">
               {formatCurrency(invoice.total)}
             </Text>
@@ -288,7 +374,7 @@ export default function InvoiceActiveDetailScreen() {
         {invoice.payment_due && (
           <View className="mt-4 bg-yellow-50 rounded-xl p-3">
             <Text className="text-sm">
-              <Text className="font-medium">Scadenza: </Text>
+              <Text className="font-medium">{t("paymentDue")} </Text>
               {formatDate(invoice.payment_due)}
             </Text>
           </View>
@@ -297,7 +383,7 @@ export default function InvoiceActiveDetailScreen() {
         {invoice.paid_at && (
           <View className="mt-2 bg-green-50 rounded-xl p-3">
             <Text className="text-sm text-green-700">
-              <Text className="font-medium">Pagata il: </Text>
+              <Text className="font-medium">{t("paidOn")} </Text>
               {formatDate(invoice.paid_at)}
             </Text>
           </View>
@@ -306,16 +392,16 @@ export default function InvoiceActiveDetailScreen() {
         {/* Reminder info */}
         {invoice.reminders_sent > 0 && (
           <Text className="text-xs text-muted mt-3">
-            Solleciti inviati: {invoice.reminders_sent}
+            {t("remindersSentCount", { count: String(invoice.reminders_sent) })}
             {invoice.last_reminder_at &&
-              ` (ultimo: ${formatDateShort(invoice.last_reminder_at)})`}
+              ` (${t("lastReminderDate", { date: formatDateShort(invoice.last_reminder_at) })})`}
           </Text>
         )}
       </ScrollView>
 
       {/* Bottom actions */}
-      {invoice.status !== "paid" && (
-        <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4">
+      <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-5 py-4">
+        {invoice.status !== "paid" && (
           <View className="flex-row gap-3 mb-2">
             <TouchableOpacity
               onPress={handleMarkPaid}
@@ -327,7 +413,7 @@ export default function InvoiceActiveDetailScreen() {
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <Text className="text-white font-semibold">
-                  Segna Pagata ✓
+                  {t("markPaid")}
                 </Text>
               )}
             </TouchableOpacity>
@@ -337,11 +423,13 @@ export default function InvoiceActiveDetailScreen() {
               className="flex-1 bg-warning rounded-xl py-3.5 items-center"
               activeOpacity={0.8}
             >
-              <Text className="text-white font-semibold">Sollecita</Text>
+              <Text className="text-white font-semibold">{t("sendReminder")}</Text>
             </TouchableOpacity>
           </View>
+        )}
 
-          {invoice.pdf_url && (
+        {invoice.pdf_url && (
+          <>
             <TouchableOpacity
               onPress={handleSharePdf}
               disabled={sharing}
@@ -352,13 +440,50 @@ export default function InvoiceActiveDetailScreen() {
                 <ActivityIndicator size="small" color="#2563eb" />
               ) : (
                 <Text className="text-primary font-semibold">
-                  Condividi PDF
+                  {t("sharePdf")}
                 </Text>
               )}
             </TouchableOpacity>
-          )}
+            <QuickShareButtons
+              pdfUrl={invoice.pdf_url}
+              clientPhone={invoice.client?.phone || null}
+              clientEmail={invoice.client?.email || null}
+              documentType="fattura"
+              documentNumber={invoice.invoice_number}
+              total={invoice.total}
+              artisanName={artisan?.business_name || ""}
+            />
+          </>
+        )}
+
+        <View className="flex-row gap-2 mt-2">
+          <TouchableOpacity
+            onPress={handleDuplicate}
+            disabled={duplicating}
+            className="flex-1 border border-gray-300 rounded-xl py-2.5 items-center"
+            activeOpacity={0.8}
+          >
+            {duplicating ? (
+              <ActivityIndicator size="small" color="#6b7280" />
+            ) : (
+              <Text className="text-gray-700 font-medium">{t("duplicate")}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDelete}
+            disabled={deleting}
+            className="flex-1 border border-red-300 rounded-xl py-2.5 items-center"
+            activeOpacity={0.8}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color="#dc2626" />
+            ) : (
+              <Text className="text-danger font-medium">{t("delete")}</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
     </>
   );
 }

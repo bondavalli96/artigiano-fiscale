@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, FlatList } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { useI18n } from "@/lib/i18n";
 import type { Client } from "@/types";
 
 interface ClientAutocompleteProps {
@@ -15,6 +16,7 @@ export function ClientAutocomplete({
   selectedClient,
   onSelect,
 }: ClientAutocompleteProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Client[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -93,7 +95,8 @@ export function ClientAutocomplete({
     <View>
       <TextInput
         className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-        placeholder="Cerca cliente o aggiungi nuovo..."
+        placeholder={t("searchClientPlaceholder")}
+        placeholderTextColor="#9ca3af"
         value={query}
         onChangeText={(text) => {
           setQuery(text);
@@ -138,20 +141,22 @@ export function ClientAutocomplete({
                 color="#2563eb"
               />
               <Text className="ml-2 text-primary font-medium">
-                Crea nuovo cliente
+                {t("createNewClient")}
               </Text>
             </TouchableOpacity>
           ) : (
             <View className="p-3">
               <TextInput
                 className="border border-gray-300 rounded-lg px-3 py-2 mb-2 text-sm"
-                placeholder="Nome cliente"
+                placeholder={t("clientName")}
+                placeholderTextColor="#9ca3af"
                 value={newName}
                 onChangeText={setNewName}
               />
               <TextInput
                 className="border border-gray-300 rounded-lg px-3 py-2 mb-2 text-sm"
-                placeholder="Telefono (opzionale)"
+                placeholder={t("phoneOptional")}
+                placeholderTextColor="#9ca3af"
                 value={newPhone}
                 onChangeText={setNewPhone}
                 keyboardType="phone-pad"
@@ -161,13 +166,13 @@ export function ClientAutocomplete({
                   onPress={() => setShowNewForm(false)}
                   className="flex-1 border border-gray-300 rounded-lg py-2 items-center"
                 >
-                  <Text className="text-gray-700 text-sm">Annulla</Text>
+                  <Text className="text-gray-700 text-sm">{t("cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleCreateNew}
                   className="flex-1 bg-primary rounded-lg py-2 items-center"
                 >
-                  <Text className="text-white text-sm font-medium">Crea</Text>
+                  <Text className="text-white text-sm font-medium">{t("create")}</Text>
                 </TouchableOpacity>
               </View>
             </View>

@@ -1,16 +1,50 @@
+export interface PaymentMethodsConfig {
+  bank_transfer?: boolean;
+  card?: boolean;
+  stripe_link?: boolean;
+  other?: boolean;
+}
+
+export interface InvoiceFieldVisibility {
+  quantity?: boolean;
+  unit?: boolean;
+  article_code?: boolean;
+  discount?: boolean;
+  vat_column?: boolean;
+  due_date?: boolean;
+  payment_method?: boolean;
+  notes?: boolean;
+  signature?: boolean;
+}
+
 export interface Artisan {
   id: string;
   user_id: string;
   business_name: string;
   trade: string;
+  country_code: "IT" | "ES" | "PT";
+  company_registration_number: string | null;
   fiscal_code: string | null;
   vat_number: string | null;
   address: string | null;
   phone: string | null;
   email: string | null;
+  website: string | null;
   preferred_input: "voice" | "text";
   sdi_code: string;
   expo_push_token: string | null;
+  logo_url: string | null;
+  signature_url: string | null;
+  default_vat_rate: number | null;
+  payment_methods: PaymentMethodsConfig | null;
+  stripe_payment_link: string | null;
+  payment_notes: string | null;
+  subscription_plan: string | null;
+  subscription_features: string[] | null;
+  invoice_template_key: string | null;
+  invoice_template_file_url: string | null;
+  invoice_field_visibility: InvoiceFieldVisibility | null;
+  inbox_email: string | null;
   created_at: string;
 }
 
@@ -55,6 +89,21 @@ export interface Job {
   photos: string[] | null;
   ai_extracted_data: AIExtractedJobData | null;
   status: JobStatus;
+  scheduled_date: string | null;
+  created_at: string;
+  client?: Client;
+}
+
+export interface AgendaEvent {
+  id: string;
+  artisan_id: string;
+  client_id: string | null;
+  title: string;
+  event_date: string;
+  event_time: string | null;
+  location: string | null;
+  description: string | null;
+  notes: string | null;
   created_at: string;
   client?: Client;
 }
@@ -163,6 +212,67 @@ export interface AIPattern {
   suggestion: string | null;
   accepted: boolean | null;
   created_at: string;
+}
+
+export interface QuoteTemplate {
+  id: string;
+  artisan_id: string;
+  name: string;
+  description: string | null;
+  items: QuoteItem[];
+  vat_rate: number;
+  notes: string | null;
+  is_default: boolean;
+  source: "manual" | "ai" | "import";
+  usage_count: number;
+  created_at: string;
+}
+
+export type InboxItemSource = "manual" | "email";
+
+export type InboxItemFileType =
+  | "image"
+  | "pdf"
+  | "audio"
+  | "document"
+  | "text";
+
+export type InboxClassification =
+  | "job"
+  | "invoice_passive"
+  | "client_info"
+  | "receipt"
+  | "other";
+
+export type InboxItemStatus =
+  | "new"
+  | "classifying"
+  | "classified"
+  | "routed"
+  | "error";
+
+export interface InboxItem {
+  id: string;
+  artisan_id: string;
+  source: InboxItemSource;
+  source_email_from: string | null;
+  source_email_subject: string | null;
+  file_url: string | null;
+  file_type: InboxItemFileType | null;
+  file_name: string | null;
+  raw_text: string | null;
+  classification: InboxClassification | null;
+  confidence: number | null;
+  ai_extracted_data: Record<string, unknown> | null;
+  ai_summary: string | null;
+  status: InboxItemStatus;
+  routed_to_table: string | null;
+  routed_to_id: string | null;
+  user_override_classification: InboxClassification | null;
+  error_message: string | null;
+  created_at: string;
+  classified_at: string | null;
+  routed_at: string | null;
 }
 
 export interface Trade {

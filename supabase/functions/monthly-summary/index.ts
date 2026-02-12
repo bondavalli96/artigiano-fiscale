@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { artisanId } = await req.json();
+    const { artisanId, locale = "it" } = await req.json();
 
     if (!artisanId) {
       return new Response(
@@ -76,6 +76,62 @@ Deno.serve(async (req) => {
     const margin = income - expenses;
     const prevMargin = pIncome - pExpenses;
 
+    const prompts: Record<string, string> = {
+      it: `Riassumi la situazione finanziaria di questo mese per un artigiano.
+
+Dati:
+- Entrate questo mese: EUR ${income.toFixed(2)}
+- Uscite questo mese: EUR ${expenses.toFixed(2)}
+- Margine: EUR ${margin.toFixed(2)}
+- Entrate mese scorso: EUR ${pIncome.toFixed(2)}
+- Uscite mese scorso: EUR ${pExpenses.toFixed(2)}
+- Margine mese scorso: EUR ${prevMargin.toFixed(2)}
+
+Scrivi un riassunto in 3-4 frasi in italiano, tono colloquiale e pratico, senza gergo tecnico-contabile.
+Usa il "tu".
+Rispondi SOLO con il testo del riassunto, niente JSON.`,
+      en: `Summarize this month's financial situation for a tradesperson.
+
+Data:
+- Income this month: EUR ${income.toFixed(2)}
+- Expenses this month: EUR ${expenses.toFixed(2)}
+- Margin: EUR ${margin.toFixed(2)}
+- Income last month: EUR ${pIncome.toFixed(2)}
+- Expenses last month: EUR ${pExpenses.toFixed(2)}
+- Margin last month: EUR ${prevMargin.toFixed(2)}
+
+Write a 3-4 sentence summary in English, conversational and practical, no accounting jargon.
+Use second person ("you").
+Reply ONLY with the summary text, no JSON.`,
+      es: `Resume la situación financiera de este mes para un artesano.
+
+Datos:
+- Ingresos este mes: EUR ${income.toFixed(2)}
+- Gastos este mes: EUR ${expenses.toFixed(2)}
+- Margen: EUR ${margin.toFixed(2)}
+- Ingresos mes pasado: EUR ${pIncome.toFixed(2)}
+- Gastos mes pasado: EUR ${pExpenses.toFixed(2)}
+- Margen mes pasado: EUR ${prevMargin.toFixed(2)}
+
+Escribe un resumen de 3-4 frases en español, tono coloquial y práctico, sin jerga contable.
+Usa el "tú".
+Responde SOLO con el texto del resumen, sin JSON.`,
+      pt: `Resuma a situação financeira deste mês para um artesão.
+
+Dados:
+- Receitas este mês: EUR ${income.toFixed(2)}
+- Despesas este mês: EUR ${expenses.toFixed(2)}
+- Margem: EUR ${margin.toFixed(2)}
+- Receitas mês passado: EUR ${pIncome.toFixed(2)}
+- Despesas mês passado: EUR ${pExpenses.toFixed(2)}
+- Margem mês passado: EUR ${prevMargin.toFixed(2)}
+
+Escreva um resumo de 3-4 frases em português, tom coloquial e prático, sem jargão contabilístico.
+Use o "você".
+Responda APENAS com o texto do resumo, sem JSON.`,
+    };
+    const prompt = prompts[locale] || prompts.it;
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -89,18 +145,7 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "user",
-            content: `Riassumi la situazione finanziaria di questo mese per un artigiano italiano.
-
-Dati:
-- Entrate questo mese: €${income.toFixed(2)}
-- Uscite questo mese: €${expenses.toFixed(2)}
-- Margine: €${margin.toFixed(2)}
-- Entrate mese scorso: €${pIncome.toFixed(2)}
-- Uscite mese scorso: €${pExpenses.toFixed(2)}
-- Margine mese scorso: €${prevMargin.toFixed(2)}
-
-Scrivi un riassunto in 3-4 frasi, come parleresti a un amico. Zero gergo tecnico-contabile. Usa il "tu".
-Rispondi SOLO con il testo del riassunto, niente JSON.`,
+            content: prompt,
           },
         ],
       }),

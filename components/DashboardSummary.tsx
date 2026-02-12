@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { formatCurrency } from "@/lib/utils/format";
 import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
+import { useI18n } from "@/lib/i18n";
 
 interface DashboardSummaryProps {
   income: number;
@@ -11,44 +12,58 @@ interface DashboardSummaryProps {
 
 export function DashboardSummary({ income, expenses }: DashboardSummaryProps) {
   const { artisan } = useArtisan();
+  const { t, locale } = useI18n();
   const margin = income - expenses;
   const maxVal = Math.max(income, expenses, 1);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchSummary = async () => {
-      if (!artisan || (income === 0 && expenses === 0)) return;
+      if (!artisan) {
+        setAiSummary(null);
+        setLoadingSummary(false);
+        return;
+      }
 
       setLoadingSummary(true);
       try {
         const { data, error } = await supabase.functions.invoke(
           "monthly-summary",
-          { body: { artisanId: artisan.id } }
+          { body: { artisanId: artisan.id, locale } }
         );
-        if (!error && data?.summary) {
+        if (!isCancelled && !error && data?.summary) {
           setAiSummary(data.summary);
+        } else if (!isCancelled) {
+          setAiSummary(null);
         }
       } catch {
         // Silently fail — AI summary is optional
+        if (!isCancelled) setAiSummary(null);
       } finally {
-        setLoadingSummary(false);
+        if (!isCancelled) setLoadingSummary(false);
       }
     };
 
-    fetchSummary();
-  }, [artisan, income, expenses]);
+    void fetchSummary();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [artisan, income, expenses, locale]);
 
   return (
     <View className="bg-white rounded-xl p-4 shadow-sm">
-      <Text className="text-base font-semibold mb-3">Questo mese</Text>
+      <Text className="text-base font-semibold mb-3">{t("thisMonth")}</Text>
 
       {/* Income bar */}
       <View className="mb-3">
         <View className="flex-row justify-between mb-1">
-          <Text className="text-sm text-muted">Entrate</Text>
+          <Text className="text-sm text-muted">{t("income")}</Text>
           <Text className="text-sm font-semibold text-success">
-            {formatCurrency(income)}
+            {formatCurrency(income, locale)}
           </Text>
         </View>
         <View className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -62,9 +77,9 @@ export function DashboardSummary({ income, expenses }: DashboardSummaryProps) {
       {/* Expenses bar */}
       <View className="mb-3">
         <View className="flex-row justify-between mb-1">
-          <Text className="text-sm text-muted">Uscite</Text>
+          <Text className="text-sm text-muted">{t("expenses")}</Text>
           <Text className="text-sm font-semibold text-danger">
-            {formatCurrency(expenses)}
+            {formatCurrency(expenses, locale)}
           </Text>
         </View>
         <View className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -77,33 +92,31 @@ export function DashboardSummary({ income, expenses }: DashboardSummaryProps) {
 
       {/* Margin */}
       <View className="border-t border-gray-100 pt-3 flex-row justify-between">
-        <Text className="text-base font-bold">Margine</Text>
+        <Text className="text-base font-bold">{t("margin")}</Text>
         <Text
           className={`text-base font-bold ${
             margin >= 0 ? "text-success" : "text-danger"
           }`}
         >
-          {formatCurrency(margin)}
+          {formatCurrency(margin, locale)}
         </Text>
       </View>
 
       {/* AI Summary */}
-      {(loadingSummary || aiSummary) && (
-        <View className="mt-3 pt-3 border-t border-gray-100">
-          <View className="bg-blue-50 rounded-xl p-3">
-            <Text className="text-xs font-semibold text-primary mb-1">
-              🤖 Riassunto AI
+      <View className="mt-3 pt-3 border-t border-gray-100">
+        <View className="bg-blue-50 rounded-xl p-3">
+          <Text className="text-xs font-semibold text-primary mb-1">
+            🤖 {t("aiSummary")}
+          </Text>
+          {loadingSummary ? (
+            <ActivityIndicator size="small" color="#2563eb" />
+          ) : (
+            <Text className="text-sm text-gray-700 leading-5">
+              {aiSummary || t("aiSummaryNoData")}
             </Text>
-            {loadingSummary ? (
-              <ActivityIndicator size="small" color="#2563eb" />
-            ) : (
-              <Text className="text-sm text-gray-700 leading-5">
-                {aiSummary}
-              </Text>
-            )}
-          </View>
+          )}
         </View>
-      )}
+      </View>
     </View>
   );
 }

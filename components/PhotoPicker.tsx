@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Image, ScrollView, Alert } from "react-na
 import * as ImagePicker from "expo-image-picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useI18n } from "@/lib/i18n";
 
 interface PhotoPickerProps {
   photos: string[];
@@ -14,9 +15,10 @@ export function PhotoPicker({
   onPhotosChange,
   maxPhotos = 5,
 }: PhotoPickerProps) {
+  const { t } = useI18n();
   const pickImage = async (useCamera: boolean) => {
     if (photos.length >= maxPhotos) {
-      Alert.alert("Limite raggiunto", `Massimo ${maxPhotos} foto`);
+      Alert.alert(t("photoLimitReached"), t("photoLimitMsg", { max: String(maxPhotos) }));
       return;
     }
 
@@ -31,14 +33,14 @@ export function PhotoPicker({
     if (useCamera) {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("Permesso negato", "Consenti l'accesso alla fotocamera nelle impostazioni");
+        Alert.alert(t("permissionDenied"), t("allowCameraAccess"));
         return;
       }
       result = await ImagePicker.launchCameraAsync(options);
     } else {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("Permesso negato", "Consenti l'accesso alla galleria nelle impostazioni");
+        Alert.alert(t("permissionDenied"), t("allowGalleryAccess"));
         return;
       }
       result = await ImagePicker.launchImageLibraryAsync(options);
@@ -92,7 +94,7 @@ export function PhotoPicker({
           className="flex-1 flex-row items-center justify-center border border-gray-300 rounded-xl py-3"
         >
           <MaterialCommunityIcons name="camera" size={20} color="#6b7280" />
-          <Text className="ml-2 text-gray-700">Fotocamera</Text>
+          <Text className="ml-2 text-gray-700">{t("camera")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -100,12 +102,12 @@ export function PhotoPicker({
           className="flex-1 flex-row items-center justify-center border border-gray-300 rounded-xl py-3"
         >
           <MaterialCommunityIcons name="image" size={20} color="#6b7280" />
-          <Text className="ml-2 text-gray-700">Galleria</Text>
+          <Text className="ml-2 text-gray-700">{t("gallery")}</Text>
         </TouchableOpacity>
       </View>
 
       <Text className="text-xs text-muted mt-1 text-center">
-        {photos.length}/{maxPhotos} foto
+        {t("photoCount", { current: String(photos.length), max: String(maxPhotos) })}
       </Text>
     </View>
   );

@@ -5,17 +5,25 @@ import {
   TouchableOpacity,
   RefreshControl,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { Stack, router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
+import { useI18n } from "@/lib/i18n";
 import { EmptyState } from "@/components/EmptyState";
+import { getClientAvgPaymentDays } from "@/lib/utils/reliability";
 import type { Client } from "@/types";
+
+interface ClientWithStats extends Client {
+  avgPaymentDays: number | null;
+}
 
 export default function ClientsScreen() {
   const { artisan } = useArtisan();
-  const [clients, setClients] = useState<Client[]>([]);
+  const { t } = useI18n();
+  const [clients, setClients] = useState<ClientWithStats[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +36,18 @@ export default function ClientsScreen() {
       .eq("artisan_id", artisan.id)
       .order("name", { ascending: true });
 
-    setClients(data || []);
+    if (data) {
+      // Fetch avg payment days for each client in parallel
+      const withStats = await Promise.all(
+        data.map(async (client) => {
+          const avgPaymentDays = await getClientAvgPaymentDays(client.id);
+          return { ...client, avgPaymentDays };
+        })
+      );
+      setClients(withStats);
+    } else {
+      setClients([]);
+    }
     setLoading(false);
   }, [artisan]);
 
@@ -48,18 +67,35 @@ export default function ClientsScreen() {
     return "text-danger";
   };
 
+  const getScoreIconColor = (score: number) => {
+    if (score >= 70) return "#22c55e";
+    if (score >= 40) return "#f59e0b";
+    return "#ef4444";
+  };
+
   const getScoreLabel = (score: number) => {
-    if (score >= 70) return "Affidabile";
-    if (score >= 40) return "Nella norma";
-    return "Attenzione";
+    if (score >= 70) return t("reliable");
+    if (score >= 40) return t("averageReliability");
+    return t("attentionReliability");
+  };
+
+  const getPaymentLabel = (avgDays: number | null) => {
+    if (avgDays === null) return t("noPaidInvoices");
+    if (avgDays <= 0) {
+      const absDays = Math.abs(avgDays);
+      return absDays === 0
+        ? t("paysOnTime")
+        : t("paysEarly", { days: String(absDays) });
+    }
+    return t("avgDaysLate", { days: String(avgDays) });
   };
 
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Clienti" }} />
+        <Stack.Screen options={{ title: t("clientsTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Caricamento...</Text>
+          <ActivityIndicator size="large" color="#2563eb" />
         </View>
       </>
     );
@@ -67,13 +103,13 @@ export default function ClientsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Clienti" }} />
+      <Stack.Screen options={{ title: t("clientsTitle") }} />
       <View className="flex-1 bg-gray-50">
         {clients.length === 0 ? (
           <EmptyState
             icon="account-group"
-            title="Nessun cliente"
-            description="I clienti appariranno qui quando li aggiungi ai lavori"
+            title={t("noClientsYet")}
+            description={t("clientsAppearHere")}
           />
         ) : (
           <FlatList
@@ -84,7 +120,13 @@ export default function ClientsScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
             renderItem={({ item }) => (
-              <View className="bg-white mx-4 mb-2 rounded-xl p-4">
+              <TouchableOpacity
+                onPress={() =>
+                  router.push(`/(tabs)/settings/client/${item.id}` as any)
+                }
+                className="bg-white mx-4 mb-2 rounded-xl p-4"
+                activeOpacity={0.8}
+              >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1">
                     <Text className="text-base font-semibold">
@@ -107,13 +149,7 @@ export default function ClientsScreen() {
                       <MaterialCommunityIcons
                         name="star"
                         size={16}
-                        color={
-                          item.reliability_score >= 70
-                            ? "#22c55e"
-                            : item.reliability_score >= 40
-                            ? "#f59e0b"
-                            : "#ef4444"
-                        }
+                        color={getScoreIconColor(item.reliability_score)}
                       />
                       <Text
                         className={`text-sm font-semibold ml-1 ${getScoreColor(
@@ -128,12 +164,41 @@ export default function ClientsScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {/* Payment stats */}
+                <View className="flex-row items-center mt-2 pt-2 border-t border-gray-100">
+                  <MaterialCommunityIcons
+                    name={
+                      item.avgPaymentDays === null
+                        ? "clock-outline"
+                        : item.avgPaymentDays <= 0
+                        ? "check-circle"
+                        : item.avgPaymentDays <= 10
+                        ? "alert-circle"
+                        : "close-circle"
+                    }
+                    size={14}
+                    color={
+                      item.avgPaymentDays === null
+                        ? "#9ca3af"
+                        : item.avgPaymentDays <= 0
+                        ? "#22c55e"
+                        : item.avgPaymentDays <= 10
+                        ? "#f59e0b"
+                        : "#ef4444"
+                    }
+                  />
+                  <Text className="text-xs text-muted ml-1">
+                    {getPaymentLabel(item.avgPaymentDays)}
+                  </Text>
+                </View>
+
                 {item.notes && (
                   <Text className="text-xs text-muted mt-2 bg-gray-50 rounded p-2">
                     {item.notes}
                   </Text>
                 )}
-              </View>
+              </TouchableOpacity>
             )}
           />
         )}

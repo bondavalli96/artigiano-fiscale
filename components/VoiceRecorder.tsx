@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { View, Text, TouchableOpacity, Animated } from "react-native";
-import { Audio } from "expo-av";
+import { View, Text, TouchableOpacity, Animated, Alert } from "react-native";
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from "expo-audio";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useI18n } from "@/lib/i18n";
 
 interface VoiceRecorderProps {
   onRecordingComplete: (uri: string) => void;
@@ -13,9 +19,11 @@ export function VoiceRecorder({
   onRecordingComplete,
   disabled,
 }: VoiceRecorderProps) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const { t } = useI18n();
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -42,19 +50,20 @@ export function VoiceRecorder({
 
   const startRecording = async () => {
     try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) return;
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      const status = await requestRecordingPermissionsAsync();
+      if (!status.granted) {
+        setPermissionDenied(true);
+        Alert.alert(t("permissionDenied"), t("microphonePermissionNeeded"));
+        return;
+      }
+      setPermissionDenied(false);
 
-      setRecording(newRecording);
+      audioRecorder.record();
       setIsRecording(true);
       setDuration(0);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -62,14 +71,20 @@ export function VoiceRecorder({
       timerRef.current = setInterval(() => {
         setDuration((prev) => prev + 1);
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
+      const errorMessage = err?.message || "";
+      const isRecordingDisabled =
+        errorMessage.includes("Recording not allowed") ||
+        errorMessage.includes("RecordingDisabledException");
+      if (isRecordingDisabled) {
+        setPermissionDenied(true);
+        Alert.alert(t("permissionDenied"), t("microphonePermissionNeeded"));
+      }
       console.error("Failed to start recording:", err);
     }
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
-
     try {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -77,16 +92,15 @@ export function VoiceRecorder({
       }
 
       setIsRecording(false);
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+      await audioRecorder.stop();
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
       });
-
-      const uri = recording.getURI();
-      setRecording(null);
       setDuration(0);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      const uri = audioRecorder.uri;
       if (uri) {
         onRecordingComplete(uri);
       }
@@ -117,6 +131,12 @@ export function VoiceRecorder({
         </Text>
       )}
 
+      {permissionDenied && !isRecording && (
+        <Text className="text-xs text-danger mb-2">
+          {t("microphonePermissionNeeded")}
+        </Text>
+      )}
+
       <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
         <TouchableOpacity
           onPress={toggleRecording}
@@ -135,7 +155,7 @@ export function VoiceRecorder({
       </Animated.View>
 
       <Text className="text-xs text-muted mt-2">
-        {isRecording ? "Tocca per fermare" : "Tocca per registrare"}
+        {isRecording ? t("tapToStop") : t("tapToRecord")}
       </Text>
     </View>
   );

@@ -4,7 +4,11 @@ import { useAuth } from "./useAuth";
 import type { Artisan } from "@/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const CACHE_KEY = "artisan_profile";
+const LEGACY_CACHE_KEY = "artisan_profile";
+
+function getUserScopedCacheKey(userId: string) {
+  return `${LEGACY_CACHE_KEY}:${userId}`;
+}
 
 export function useArtisan() {
   const { user } = useAuth();
@@ -15,16 +19,22 @@ export function useArtisan() {
     if (!user) {
       setArtisan(null);
       setLoading(false);
+      await AsyncStorage.removeItem(LEGACY_CACHE_KEY);
       return;
     }
 
     try {
-      // Try cache first
-      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      const scopedKey = getUserScopedCacheKey(user.id);
+
+      // Try user-scoped cache first
+      const cached = await AsyncStorage.getItem(scopedKey);
       if (cached) {
         setArtisan(JSON.parse(cached));
         setLoading(false);
       }
+
+      // Cleanup old non-scoped cache key left by previous versions.
+      await AsyncStorage.removeItem(LEGACY_CACHE_KEY);
 
       // Fetch from DB
       const { data, error } = await supabase
@@ -37,10 +47,10 @@ export function useArtisan() {
 
       if (data) {
         setArtisan(data);
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        await AsyncStorage.setItem(scopedKey, JSON.stringify(data));
       } else {
         setArtisan(null);
-        await AsyncStorage.removeItem(CACHE_KEY);
+        await AsyncStorage.removeItem(scopedKey);
       }
     } catch (err) {
       console.error("Error fetching artisan:", err);

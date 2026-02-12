@@ -31,11 +31,12 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.artigianoai.app",
       "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.VIBRATE",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -54,7 +55,7 @@
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "ArtigianoAI usa il microfono per registrare descrizioni vocali dei lavori."
         }
@@ -65,10 +66,17 @@
           "icon": "./assets/images/icon.png",
           "color": "#2563eb"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "35d90253-88c9-4467-be24-e44e737d13e6"
+      }
     }
   }
 }

@@ -1,41 +1,66 @@
 import { format, parseISO } from "date-fns";
-import { it } from "date-fns/locale";
+import { it, enUS, es, pt } from "date-fns/locale";
+import type { Locale } from "@/lib/i18n";
+
+const LOCALE_MAP = { it, en: enUS, es, pt };
 
 /**
- * Formatta un importo in Euro con formato italiano
- * @example formatCurrency(1234.56) → "€ 1.234,56"
+ * Format a currency amount in EUR
  */
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
+export function formatCurrency(amount: number, locale: Locale = "it"): string {
+  const localeMap: Record<Locale, string> = {
+    it: "it-IT",
+    en: "en-IE",
+    es: "es-ES",
+    pt: "pt-PT",
+  };
+  return new Intl.NumberFormat(localeMap[locale], {
     style: "currency",
     currency: "EUR",
   }).format(amount);
 }
 
 /**
- * Formatta una data in formato italiano lungo
- * @example formatDate("2026-02-09") → "9 febbraio 2026"
+ * Format a date in long format
  */
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date, locale: Locale = "it"): string {
   const d = typeof date === "string" ? parseISO(date) : date;
-  return format(d, "d MMMM yyyy", { locale: it });
+  const fmtMap: Record<Locale, string> = {
+    it: "d MMMM yyyy",
+    en: "MMMM d, yyyy",
+    es: "d 'de' MMMM 'de' yyyy",
+    pt: "d 'de' MMMM 'de' yyyy",
+  };
+  return format(d, fmtMap[locale], { locale: LOCALE_MAP[locale] });
 }
 
 /**
- * Formatta una data in formato corto
- * @example formatDateShort("2026-02-09") → "09/02/2026"
+ * Format a date in short format
  */
-export function formatDateShort(date: string | Date): string {
+export function formatDateShort(date: string | Date, locale: Locale = "it"): string {
   const d = typeof date === "string" ? parseISO(date) : date;
-  return format(d, "dd/MM/yyyy", { locale: it });
+  const fmtMap: Record<Locale, string> = {
+    it: "dd/MM/yyyy",
+    en: "MM/dd/yyyy",
+    es: "dd/MM/yyyy",
+    pt: "dd/MM/yyyy",
+  };
+  return format(d, fmtMap[locale], { locale: LOCALE_MAP[locale] });
 }
 
 /**
- * Saluto basato sull'ora del giorno
+ * Greeting based on time of day
  */
-export function getGreeting(): string {
+export function getGreeting(locale: Locale = "it"): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Buongiorno";
-  if (hour < 18) return "Buon pomeriggio";
-  return "Buonasera";
+  const greetings: Record<Locale, [string, string, string]> = {
+    it: ["Buongiorno", "Buon pomeriggio", "Buonasera"],
+    en: ["Good morning", "Good afternoon", "Good evening"],
+    es: ["Buenos días", "Buenas tardes", "Buenas noches"],
+    pt: ["Bom dia", "Boa tarde", "Boa noite"],
+  };
+  const [morning, afternoon, evening] = greetings[locale];
+  if (hour < 12) return morning;
+  if (hour < 18) return afternoon;
+  return evening;
 }

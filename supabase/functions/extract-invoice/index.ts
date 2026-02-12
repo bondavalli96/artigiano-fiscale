@@ -102,7 +102,9 @@ Rispondi SOLO con JSON valido. Se un campo non è chiaro, usa null.`,
     });
 
     const data = await response.json();
-    const extracted = JSON.parse(data.content[0].text);
+    const aiText = data.content[0].text;
+    const cleaned = aiText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const extracted = JSON.parse(cleaned);
 
     // Check for anomalies
     const flags: { duplicate?: boolean; unusual_amount?: boolean; near_deadline?: boolean; message?: string } = {};

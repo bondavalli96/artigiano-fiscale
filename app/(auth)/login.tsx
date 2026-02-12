@@ -12,15 +12,17 @@ import {
 import { Link, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import * as Haptics from "expo-haptics";
+import { useI18n } from "@/lib/i18n";
 
 export default function LoginScreen() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Errore", "Inserisci email e password");
+      Alert.alert(t("error"), t("loginEmailPassword"));
       return;
     }
 
@@ -35,7 +37,7 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (error: any) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Errore", error.message || "Errore durante il login");
+      Alert.alert(t("error"), error.message || t("loginError"));
     } finally {
       setLoading(false);
     }
@@ -48,17 +50,18 @@ export default function LoginScreen() {
     >
       <View className="flex-1 justify-center px-6">
         <Text className="text-3xl font-bold text-center text-primary mb-2">
-          ArtigianoAI
+          {t("appName")}
         </Text>
         <Text className="text-base text-center text-muted mb-10">
-          Il tuo copilota per il lavoro
+          {t("appTagline")}
         </Text>
 
         <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-1">Email</Text>
+          <Text className="text-sm font-medium text-gray-700 mb-1">{t("email")}</Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-            placeholder="mario@esempio.it"
+            placeholder={t("emailPlaceholder")}
+            placeholderTextColor="#9ca3af"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -70,11 +73,12 @@ export default function LoginScreen() {
 
         <View className="mb-6">
           <Text className="text-sm font-medium text-gray-700 mb-1">
-            Password
+            {t("password")}
           </Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-            placeholder="La tua password"
+            placeholder={t("passwordPlaceholder")}
+            placeholderTextColor="#9ca3af"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -92,15 +96,15 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white text-lg font-semibold">Accedi</Text>
+            <Text className="text-white text-lg font-semibold">{t("login")}</Text>
           )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center">
-          <Text className="text-muted">Non hai un account? </Text>
+          <Text className="text-muted">{t("noAccount")}</Text>
           <Link href="/(auth)/register" asChild>
             <TouchableOpacity>
-              <Text className="text-primary font-semibold">Registrati</Text>
+              <Text className="text-primary font-semibold">{t("register")}</Text>
             </TouchableOpacity>
           </Link>
         </View>

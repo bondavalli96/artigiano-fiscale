@@ -12,18 +12,20 @@ import { useArtisan } from "@/hooks/useArtisan";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDateShort } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n";
 import type { Job, JobStatus } from "@/types";
 
-const FILTERS: { label: string; value: JobStatus | "all" }[] = [
-  { label: "Tutti", value: "all" },
-  { label: "Bozza", value: "draft" },
-  { label: "Preventivato", value: "quoted" },
-  { label: "Accettato", value: "accepted" },
-  { label: "Fatturato", value: "invoiced" },
-];
-
 export default function JobsListScreen() {
+  const { t } = useI18n();
   const { artisan } = useArtisan();
+
+  const FILTERS: { label: string; value: JobStatus | "all" }[] = [
+    { label: t("all"), value: "all" },
+    { label: t("statusDraft"), value: "draft" },
+    { label: t("statusQuoted"), value: "quoted" },
+    { label: t("statusAccepted"), value: "accepted" },
+    { label: t("statusInvoiced"), value: "invoiced" },
+  ];
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<JobStatus | "all">("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -60,9 +62,9 @@ export default function JobsListScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Lavori" }} />
+        <Stack.Screen options={{ title: t("jobsTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Caricamento...</Text>
+          <Text className="text-muted">{t("loading")}</Text>
         </View>
       </>
     );
@@ -70,7 +72,7 @@ export default function JobsListScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Lavori" }} />
+      <Stack.Screen options={{ title: t("jobsTitle") }} />
       <View className="flex-1 bg-gray-50">
         {/* Filter chips */}
         <View className="flex-row px-4 py-3 gap-2">
@@ -96,9 +98,9 @@ export default function JobsListScreen() {
         {jobs.length === 0 ? (
           <EmptyState
             icon="hammer"
-            title="Nessun lavoro"
-            description="Aggiungi il tuo primo lavoro per iniziare"
-            actionLabel="+ Nuovo Lavoro"
+            title={t("noJobs")}
+            description={t("addFirstJob")}
+            actionLabel={t("newJob")}
             onAction={() => router.push("/(tabs)/jobs/new")}
           />
         ) : (

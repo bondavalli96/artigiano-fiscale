@@ -14,6 +14,8 @@ import { PaperProvider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useColorScheme } from "@/components/useColorScheme";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { PushNotificationRegistrar } from "@/components/PushNotificationRegistrar";
+import { I18nProvider } from "@/lib/i18n";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -50,12 +52,14 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
+    <I18nProvider>
     <SafeAreaProvider>
       <PaperProvider>
         <ThemeProvider
           value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
         >
           <OfflineBanner />
+          <PushNotificationRegistrar />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -67,5 +71,6 @@ function RootLayoutNav() {
         </ThemeProvider>
       </PaperProvider>
     </SafeAreaProvider>
+    </I18nProvider>
   );
 }

@@ -57,8 +57,9 @@ Esempio formato:
     const data = await response.json();
     const text = data.content[0].text;
 
-    // Parse JSON from response
-    const items = JSON.parse(text);
+    // Strip markdown code fences if present
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const items = JSON.parse(cleaned);
 
     return new Response(JSON.stringify({ items }), {
       headers: { "Content-Type": "application/json" },

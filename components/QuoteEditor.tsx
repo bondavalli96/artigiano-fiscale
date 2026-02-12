@@ -11,6 +11,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { formatCurrency } from "@/lib/utils/format";
 import type { QuoteItem } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 const UNITS = ["ore", "pezzi", "metri", "metro quadro", "forfait"];
 
@@ -29,6 +30,7 @@ export function QuoteEditor({
   onVatRateChange,
   isAIDraft,
 }: QuoteEditorProps) {
+  const { t } = useI18n();
   const [editingVat, setEditingVat] = useState(false);
   const [vatInput, setVatInput] = useState(vatRate.toString());
 
@@ -96,7 +98,7 @@ export function QuoteEditor({
   const handleVatSave = () => {
     const rate = parseFloat(vatInput);
     if (isNaN(rate) || rate < 0 || rate > 100) {
-      Alert.alert("Errore", "Inserisci un'aliquota IVA valida (0-100)");
+      Alert.alert(t("error"), t("invalidVatRate"));
       return;
     }
     onVatRateChange(rate);
@@ -109,17 +111,18 @@ export function QuoteEditor({
         <View className="flex-1 mr-2">
           <TextInput
             className="text-base font-medium text-gray-900 mb-2 border-b border-gray-200 pb-1"
-            placeholder="Descrizione voce..."
+            placeholder={t("descriptionPlaceholder")}
+            placeholderTextColor="#9ca3af"
             value={item.description}
             onChangeText={(v) => updateItem(index, "description", v)}
           />
           <View className="flex-row items-center gap-3">
             <View className="flex-row items-center">
-              <Text className="text-xs text-muted mr-1">Qtà</Text>
+              <Text className="text-xs text-muted mr-1">{t("qty")}</Text>
               <TextInput
                 className="text-sm font-medium bg-gray-50 rounded px-2 py-1 w-14 text-center"
                 keyboardType="decimal-pad"
-                value={item.quantity.toString()}
+                value={(item.quantity ?? (item as any).qty ?? 0).toString()}
                 onChangeText={(v) => updateItem(index, "quantity", v)}
               />
             </View>
@@ -134,7 +137,7 @@ export function QuoteEditor({
               <TextInput
                 className="text-sm font-medium bg-gray-50 rounded px-2 py-1 w-20 text-center"
                 keyboardType="decimal-pad"
-                value={item.unit_price.toString()}
+                value={(item.unit_price ?? 0).toString()}
                 onChangeText={(v) => updateItem(index, "unit_price", v)}
               />
             </View>
@@ -162,7 +165,7 @@ export function QuoteEditor({
         <View className="bg-blue-50 mx-4 rounded-xl p-3 mb-3 flex-row items-center">
           <Text className="text-2xl mr-2">🤖</Text>
           <Text className="text-sm text-primary font-medium flex-1">
-            Bozza AI — modifica come vuoi
+            {t("aiDraftModify")}
           </Text>
         </View>
       )}
@@ -180,14 +183,14 @@ export function QuoteEditor({
             >
               <MaterialCommunityIcons name="plus" size={20} color="#6b7280" />
               <Text className="ml-2 text-gray-600 font-medium">
-                Aggiungi riga
+                {t("addRow")}
               </Text>
             </TouchableOpacity>
 
             {/* Totals */}
             <View className="bg-white rounded-xl p-4 border border-gray-100">
               <View className="flex-row justify-between mb-2">
-                <Text className="text-sm text-muted">Imponibile</Text>
+                <Text className="text-sm text-muted">{t("subtotal")}</Text>
                 <Text className="text-sm font-medium">
                   {formatCurrency(subtotal)}
                 </Text>
@@ -198,7 +201,7 @@ export function QuoteEditor({
                 className="flex-row justify-between mb-2"
               >
                 <Text className="text-sm text-muted">
-                  IVA ({vatRate}%){" "}
+                  {t("vatRate", { rate: String(vatRate) })}{" "}
                   <Text className="text-xs text-primary">✏️</Text>
                 </Text>
                 <Text className="text-sm font-medium">
@@ -208,7 +211,7 @@ export function QuoteEditor({
 
               {editingVat && (
                 <View className="flex-row items-center gap-2 mb-2 bg-gray-50 rounded p-2">
-                  <Text className="text-sm text-muted">Aliquota IVA:</Text>
+                  <Text className="text-sm text-muted">{t("vatRateLabel")}</Text>
                   <TextInput
                     className="text-sm font-medium bg-white rounded px-2 py-1 w-16 text-center border border-gray-200"
                     keyboardType="decimal-pad"
@@ -226,7 +229,7 @@ export function QuoteEditor({
               )}
 
               <View className="border-t border-gray-200 pt-2 flex-row justify-between">
-                <Text className="text-lg font-bold">TOTALE</Text>
+                <Text className="text-lg font-bold">{t("total")}</Text>
                 <Text className="text-lg font-bold text-primary">
                   {formatCurrency(total)}
                 </Text>

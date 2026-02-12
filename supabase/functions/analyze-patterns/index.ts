@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { artisanId } = await req.json();
+    const { artisanId, locale = "it" } = await req.json();
 
     if (!artisanId) {
       return new Response(
@@ -83,6 +83,86 @@ Deno.serve(async (req) => {
       unusedPriceItems: priceList?.filter((p: { usage_count: number }) => p.usage_count === 0) || [],
     };
 
+    const prompts: Record<string, string> = {
+      it: `Analizza i dati di questo artigiano e genera al massimo 3 suggerimenti utili.
+
+Dati:
+- Preventivi fatti: ${context.totalQuotes}, accettati: ${context.acceptedQuotes}
+- Preventivo medio: EUR ${context.avgQuoteTotal.toFixed(2)}
+- Fatture attive: ${context.totalActiveInvoices}, pagate: ${context.paidInvoices}, scadute: ${context.overdueInvoices}
+- Spese totali recenti: EUR ${context.totalExpenses.toFixed(2)}
+- Categorie spesa principali: ${context.topExpenseCategories.join(", ") || "nessuna"}
+- Clienti totali: ${context.clientCount}
+- Clienti poco affidabili: ${context.lowReliabilityClients.length}
+- Voci listino: ${context.priceListItems}, mai usate: ${context.unusedPriceItems.length}
+
+Genera un JSON array con max 3 suggerimenti. Per ogni suggerimento:
+- type: "pricing" | "client" | "expense" | "efficiency"
+- suggestion: testo del suggerimento (1-2 frasi, in italiano, tono pratico e amichevole)
+- priority: "high" | "medium" | "low"
+
+Se non ci sono abbastanza dati per suggerimenti utili, ritorna un array vuoto.
+Rispondi SOLO con JSON array valido.`,
+      en: `Analyze this tradesperson's data and generate up to 3 useful suggestions.
+
+Data:
+- Quotes created: ${context.totalQuotes}, accepted: ${context.acceptedQuotes}
+- Average quote total: EUR ${context.avgQuoteTotal.toFixed(2)}
+- Active invoices: ${context.totalActiveInvoices}, paid: ${context.paidInvoices}, overdue: ${context.overdueInvoices}
+- Recent total expenses: EUR ${context.totalExpenses.toFixed(2)}
+- Main expense categories: ${context.topExpenseCategories.join(", ") || "none"}
+- Total clients: ${context.clientCount}
+- Low reliability clients: ${context.lowReliabilityClients.length}
+- Price list items: ${context.priceListItems}, never used: ${context.unusedPriceItems.length}
+
+Return a JSON array with max 3 suggestions. For each suggestion:
+- type: "pricing" | "client" | "expense" | "efficiency"
+- suggestion: suggestion text (1-2 sentences, in English, practical and friendly tone)
+- priority: "high" | "medium" | "low"
+
+If there is not enough data for useful suggestions, return an empty array.
+Reply ONLY with a valid JSON array.`,
+      es: `Analiza los datos de este artesano y genera hasta 3 sugerencias útiles.
+
+Datos:
+- Presupuestos: ${context.totalQuotes}, aceptados: ${context.acceptedQuotes}
+- Presupuesto medio: EUR ${context.avgQuoteTotal.toFixed(2)}
+- Facturas activas: ${context.totalActiveInvoices}, pagadas: ${context.paidInvoices}, vencidas: ${context.overdueInvoices}
+- Gastos totales recientes: EUR ${context.totalExpenses.toFixed(2)}
+- Categorías gasto principales: ${context.topExpenseCategories.join(", ") || "ninguna"}
+- Clientes totales: ${context.clientCount}
+- Clientes poco fiables: ${context.lowReliabilityClients.length}
+- Partidas listado: ${context.priceListItems}, nunca usadas: ${context.unusedPriceItems.length}
+
+Genera un JSON array con máx 3 sugerencias. Para cada sugerencia:
+- type: "pricing" | "client" | "expense" | "efficiency"
+- suggestion: texto de la sugerencia (1-2 frases, en español, tono práctico y amigable)
+- priority: "high" | "medium" | "low"
+
+Si no hay suficientes datos, devuelve un array vacío.
+Responde SOLO con JSON array válido.`,
+      pt: `Analisa os dados deste artesão e gera até 3 sugestões úteis.
+
+Dados:
+- Orçamentos: ${context.totalQuotes}, aceites: ${context.acceptedQuotes}
+- Orçamento médio: EUR ${context.avgQuoteTotal.toFixed(2)}
+- Faturas ativas: ${context.totalActiveInvoices}, pagas: ${context.paidInvoices}, vencidas: ${context.overdueInvoices}
+- Despesas totais recentes: EUR ${context.totalExpenses.toFixed(2)}
+- Categorias despesa principais: ${context.topExpenseCategories.join(", ") || "nenhuma"}
+- Clientes totais: ${context.clientCount}
+- Clientes pouco fiáveis: ${context.lowReliabilityClients.length}
+- Itens lista: ${context.priceListItems}, nunca usados: ${context.unusedPriceItems.length}
+
+Gera um JSON array com máx 3 sugestões. Para cada sugestão:
+- type: "pricing" | "client" | "expense" | "efficiency"
+- suggestion: texto da sugestão (1-2 frases, em português, tom prático e amigável)
+- priority: "high" | "medium" | "low"
+
+Se não há dados suficientes, devolve array vazio.
+Responde APENAS com JSON array válido.`,
+    };
+    const prompt = prompts[locale] || prompts.it;
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -96,32 +176,16 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "user",
-            content: `Analizza questi dati di un artigiano italiano e genera al massimo 3 suggerimenti utili.
-
-Dati:
-- Preventivi fatti: ${context.totalQuotes}, accettati: ${context.acceptedQuotes}
-- Preventivo medio: €${context.avgQuoteTotal.toFixed(2)}
-- Fatture attive: ${context.totalActiveInvoices}, pagate: ${context.paidInvoices}, scadute: ${context.overdueInvoices}
-- Spese totali recenti: €${context.totalExpenses.toFixed(2)}
-- Categorie spesa principali: ${context.topExpenseCategories.join(", ") || "nessuna"}
-- Clienti totali: ${context.clientCount}
-- Clienti poco affidabili: ${context.lowReliabilityClients.length}
-- Voci listino: ${context.priceListItems}, mai usate: ${context.unusedPriceItems.length}
-
-Genera un JSON array con max 3 suggerimenti. Per ogni suggerimento:
-- type: "pricing" | "client" | "expense" | "efficiency"
-- suggestion: testo del suggerimento (1-2 frasi, in italiano, tono amichevole)
-- priority: "high" | "medium" | "low"
-
-Se non ci sono abbastanza dati per suggerimenti utili, ritorna un array vuoto.
-Rispondi SOLO con JSON array valido.`,
+            content: prompt,
           },
         ],
       }),
     });
 
     const data = await response.json();
-    const suggestions = JSON.parse(data.content[0].text);
+    const text = data.content[0].text;
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const suggestions = JSON.parse(cleaned);
 
     // Save suggestions to ai_patterns
     for (const suggestion of suggestions) {

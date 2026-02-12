@@ -11,6 +11,19 @@
       "args": [
         "@anthropic-ai/github-mcp@latest"
       ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "supabase": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "cd /Users/davidebondavalli/PMIapp_native/artigiano-app && set -a && source .env && export SUPABASE_ACCESS_TOKEN=\"$TOKEN_SUPABASE\" && set +a && npx -y @supabase/mcp-server-supabase@latest --project-ref=zvmvrhdcjprlbqfzslhg"
+      ]
     }
   }
 }

@@ -18,9 +18,11 @@ import { useArtisan } from "@/hooks/useArtisan";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { ClientAutocomplete } from "@/components/ClientAutocomplete";
+import { useI18n } from "@/lib/i18n";
 import type { Client, AIExtractedJobData } from "@/types";
 
 export default function NewJobScreen() {
+  const { t } = useI18n();
   const { artisan } = useArtisan();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -67,7 +69,7 @@ export default function NewJobScreen() {
         prev ? `${prev}\n${data.transcription}` : data.transcription
       );
     } catch (err: any) {
-      Alert.alert("Errore", "Trascrizione fallita: " + (err.message || ""));
+      Alert.alert(t("error"), t("transcriptionFailed") + ": " + (err.message || ""));
     } finally {
       setTranscribing(false);
     }
@@ -75,7 +77,7 @@ export default function NewJobScreen() {
 
   const handleAnalyze = async () => {
     if (!description.trim()) {
-      Alert.alert("Errore", "Inserisci una descrizione prima di analizzare");
+      Alert.alert(t("error"), t("enterDescFirst"));
       return;
     }
 
@@ -95,7 +97,7 @@ export default function NewJobScreen() {
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert("Errore", "Analisi fallita: " + (err.message || ""));
+      Alert.alert(t("error"), t("analysisFailed") + ": " + (err.message || ""));
     } finally {
       setAnalyzing(false);
     }
@@ -104,7 +106,7 @@ export default function NewJobScreen() {
   const handleSave = async () => {
     if (!artisan) return;
     if (!title.trim()) {
-      Alert.alert("Errore", "Inserisci un titolo per il lavoro");
+      Alert.alert(t("error"), t("enterJobTitle"));
       return;
     }
 
@@ -145,7 +147,7 @@ export default function NewJobScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (err: any) {
-      Alert.alert("Errore", err.message || "Errore durante il salvataggio");
+      Alert.alert(t("error"), err.message || t("saveError"));
     } finally {
       setSaving(false);
     }
@@ -153,7 +155,7 @@ export default function NewJobScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Nuovo Lavoro" }} />
+      <Stack.Screen options={{ title: t("newJobTitle") }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -165,7 +167,7 @@ export default function NewJobScreen() {
         >
           {/* Client */}
           <Text className="text-sm font-medium text-gray-700 mb-1">
-            Cliente
+            {t("client")}
           </Text>
           {artisan && (
             <ClientAutocomplete
@@ -177,22 +179,24 @@ export default function NewJobScreen() {
 
           {/* Title */}
           <Text className="text-sm font-medium text-gray-700 mb-1 mt-4">
-            Titolo lavoro
+            {t("jobTitle")}
           </Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-            placeholder="Es. Riparazione perdita bagno"
+            placeholder={t("jobTitlePlaceholder")}
+            placeholderTextColor="#9ca3af"
             value={title}
             onChangeText={setTitle}
           />
 
           {/* Description */}
           <Text className="text-sm font-medium text-gray-700 mb-1 mt-4">
-            Descrizione
+            {t("description")}
           </Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50 min-h-[100]"
-            placeholder="Descrivi il lavoro..."
+            placeholder={t("describeJob")}
+            placeholderTextColor="#9ca3af"
             value={description}
             onChangeText={setDescription}
             multiline
@@ -209,14 +213,14 @@ export default function NewJobScreen() {
             <View className="flex-row items-center justify-center mb-3">
               <ActivityIndicator size="small" color="#2563eb" />
               <Text className="ml-2 text-sm text-primary">
-                Sto trascrivendo...
+                {t("transcribing")}
               </Text>
             </View>
           )}
 
           {/* Photos */}
           <Text className="text-sm font-medium text-gray-700 mb-2 mt-2">
-            Foto
+            {t("photos", { count: "" })}
           </Text>
           <PhotoPicker photos={photos} onPhotosChange={setPhotos} />
 
@@ -233,7 +237,7 @@ export default function NewJobScreen() {
                 <Text className="text-2xl mr-2">🤖</Text>
               )}
               <Text className="text-primary font-semibold ml-1">
-                {analyzing ? "Analizzando..." : "Analizza con AI"}
+                {analyzing ? t("analyzing") : t("analyzeAI")}
               </Text>
             </TouchableOpacity>
           )}
@@ -242,29 +246,29 @@ export default function NewJobScreen() {
           {aiData && (
             <View className="mt-4 bg-blue-50 rounded-xl p-4">
               <Text className="text-sm font-semibold text-primary mb-2">
-                🤖 Dati estratti dall'AI
+                🤖 {t("aiExtractedData")}
               </Text>
               {aiData.tipo_lavoro && (
                 <Text className="text-sm mb-1">
-                  <Text className="font-medium">Tipo: </Text>
+                  <Text className="font-medium">{t("type")}: </Text>
                   {aiData.tipo_lavoro}
                 </Text>
               )}
               {aiData.materiali && aiData.materiali.length > 0 && (
                 <Text className="text-sm mb-1">
-                  <Text className="font-medium">Materiali: </Text>
+                  <Text className="font-medium">{t("materials")}: </Text>
                   {aiData.materiali.join(", ")}
                 </Text>
               )}
               {aiData.urgenza && (
                 <Text className="text-sm mb-1">
-                  <Text className="font-medium">Urgenza: </Text>
+                  <Text className="font-medium">{t("urgency")}: </Text>
                   {aiData.urgenza}
                 </Text>
               )}
               {aiData.note && (
                 <Text className="text-sm">
-                  <Text className="font-medium">Note: </Text>
+                  <Text className="font-medium">{t("notes")}: </Text>
                   {aiData.note}
                 </Text>
               )}
@@ -286,7 +290,7 @@ export default function NewJobScreen() {
               <ActivityIndicator color="white" />
             ) : (
               <Text className="text-white text-lg font-semibold">
-                Salva Lavoro
+                {t("saveJob")}
               </Text>
             )}
           </TouchableOpacity>

@@ -1,0 +1,26 @@
+FATTURA N. FT-2026-0847
+Data: 05/02/2026
+
+IDROTERM S.R.L.
+Via dell'Industria 12, 20090 Assago (MI)
+P.IVA: 09876543210
+
+Spett.le
+Rossi Impianti Idraulici
+P.IVA: 12345678901
+
+Descrizione                          Qtà    Prezzo    Importo
+-----------------------------------------------------------
+Tubo multistrato 20mm (rotolo 50m)    2    €45,00    €90,00
+Raccordi a pressare 20mm             10     €3,50    €35,00
+Valvola miscelatrice termostatica      1    €89,00    €89,00
+Collettore 4 uscite                    2    €42,00    €84,00
+Guarnizioni assortite (kit)            3     €8,50    €25,50
+
+Imponibile:                                          €323,50
+IVA 22%:                                              €71,17
+TOTALE:                                              €394,67
+
+Pagamento: Bonifico 30gg data fattura
+IBAN: IT60X0542811101000000123456
+Scadenza: 07/03/2026

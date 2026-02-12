@@ -109,9 +109,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { artisanId, invoiceId } = body as {
+    const { artisanId, invoiceId, invoiceIds } = body as {
       artisanId?: string;
       invoiceId?: string;
+      invoiceIds?: string[];
     };
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -126,7 +127,9 @@ Deno.serve(async (req) => {
     if (artisanId) {
       query = query.eq("artisan_id", artisanId);
     }
-    if (invoiceId) {
+    if (invoiceIds && invoiceIds.length > 0) {
+      query = query.in("id", invoiceIds);
+    } else if (invoiceId) {
       query = query.eq("id", invoiceId);
     }
 

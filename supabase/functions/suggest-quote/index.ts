@@ -75,7 +75,9 @@ Rispondi SOLO con un JSON array valido, nessun testo aggiuntivo.`,
     });
 
     const data = await response.json();
-    const items = JSON.parse(data.content[0].text);
+    const text = data.content[0].text;
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const items = JSON.parse(cleaned);
 
     return new Response(JSON.stringify({ items }), {
       headers: { "Content-Type": "application/json" },

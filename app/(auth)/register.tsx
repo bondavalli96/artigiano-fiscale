@@ -12,8 +12,10 @@ import {
 import { Link, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import * as Haptics from "expo-haptics";
+import { useI18n } from "@/lib/i18n";
 
 export default function RegisterScreen() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,17 +23,17 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword) {
-      Alert.alert("Errore", "Compila tutti i campi");
+      Alert.alert(t("error"), t("fillAllFields"));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Errore", "Le password non corrispondono");
+      Alert.alert(t("error"), t("passwordMismatch"));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("Errore", "La password deve avere almeno 6 caratteri");
+      Alert.alert(t("error"), t("passwordMinLength"));
       return;
     }
 
@@ -46,7 +48,7 @@ export default function RegisterScreen() {
       router.replace("/onboarding");
     } catch (error: any) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Errore", error.message || "Errore durante la registrazione");
+      Alert.alert(t("error"), error.message || t("registerError"));
     } finally {
       setLoading(false);
     }
@@ -59,17 +61,18 @@ export default function RegisterScreen() {
     >
       <View className="flex-1 justify-center px-6">
         <Text className="text-3xl font-bold text-center text-primary mb-2">
-          Crea il tuo account
+          {t("createAccount")}
         </Text>
         <Text className="text-base text-center text-muted mb-10">
-          Inizia a gestire i tuoi lavori con l'AI
+          {t("registerTagline")}
         </Text>
 
         <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-1">Email</Text>
+          <Text className="text-sm font-medium text-gray-700 mb-1">{t("email")}</Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-            placeholder="mario@esempio.it"
+            placeholder={t("emailPlaceholder")}
+            placeholderTextColor="#9ca3af"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -81,11 +84,12 @@ export default function RegisterScreen() {
 
         <View className="mb-4">
           <Text className="text-sm font-medium text-gray-700 mb-1">
-            Password
+            {t("password")}
           </Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-            placeholder="Minimo 6 caratteri"
+            placeholder={t("minChars")}
+            placeholderTextColor="#9ca3af"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -96,11 +100,12 @@ export default function RegisterScreen() {
 
         <View className="mb-6">
           <Text className="text-sm font-medium text-gray-700 mb-1">
-            Conferma password
+            {t("confirmPassword")}
           </Text>
           <TextInput
             className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-            placeholder="Ripeti la password"
+            placeholder={t("repeatPassword")}
+            placeholderTextColor="#9ca3af"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
@@ -118,15 +123,15 @@ export default function RegisterScreen() {
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white text-lg font-semibold">Registrati</Text>
+            <Text className="text-white text-lg font-semibold">{t("register")}</Text>
           )}
         </TouchableOpacity>
 
         <View className="flex-row justify-center">
-          <Text className="text-muted">Hai già un account? </Text>
+          <Text className="text-muted">{t("hasAccount")}</Text>
           <Link href="/(auth)/login" asChild>
             <TouchableOpacity>
-              <Text className="text-primary font-semibold">Accedi</Text>
+              <Text className="text-primary font-semibold">{t("login")}</Text>
             </TouchableOpacity>
           </Link>
         </View>

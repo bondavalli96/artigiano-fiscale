@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useArtisan } from "@/hooks/useArtisan";
 import { supabase } from "@/lib/supabase";
 import { getGreeting, formatCurrency, formatDateShort } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { AISuggestionBanner } from "@/components/AISuggestionBanner";
 import { EmptyState } from "@/components/EmptyState";
@@ -20,6 +21,7 @@ import type { InvoiceActive } from "@/types";
 
 export default function DashboardScreen() {
   const { artisan, loading: artisanLoading } = useArtisan();
+  const { t, locale } = useI18n();
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     unpaidCount: 0,
@@ -121,7 +123,7 @@ export default function DashboardScreen() {
   if (artisanLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <Text className="text-muted">Caricamento...</Text>
+        <Text className="text-muted">{t("loading")}</Text>
       </View>
     );
   }
@@ -130,9 +132,9 @@ export default function DashboardScreen() {
     return (
       <EmptyState
         icon="account-alert"
-        title="Profilo non trovato"
-        description="Completa l'onboarding per iniziare"
-        actionLabel="Vai all'onboarding"
+        title={t("profileNotFound")}
+        description={t("completeOnboarding")}
+        actionLabel={t("goToOnboarding")}
         onAction={() => router.replace("/onboarding")}
       />
     );
@@ -150,7 +152,7 @@ export default function DashboardScreen() {
         {/* Greeting */}
         <View className="px-5 pt-4 pb-2">
           <Text className="text-2xl font-bold text-gray-900">
-            {getGreeting()}, {artisan.business_name.split(" ")[0]}!
+            {getGreeting(locale)}, {artisan.business_name.split(" ")[0]}!
           </Text>
         </View>
 
@@ -163,18 +165,21 @@ export default function DashboardScreen() {
         <View className="px-5 flex-row gap-3 mb-4">
           <View className="flex-1 bg-white rounded-xl p-4 shadow-sm">
             <Text className="text-3xl mb-1">💰</Text>
-            <Text className="text-xs text-muted">Da incassare</Text>
+            <Text className="text-xs text-muted">{t("toCollect")}</Text>
             <Text className="text-lg font-bold">
-              {formatCurrency(stats.unpaidTotal)}
+              {formatCurrency(stats.unpaidTotal, locale)}
             </Text>
             <Text className="text-xs text-muted">
-              {stats.unpaidCount} fattur{stats.unpaidCount === 1 ? "a" : "e"}
+              {t("invoiceCount", {
+                count: String(stats.unpaidCount),
+                suffix: stats.unpaidCount === 1 ? t("invoiceSuffixOne") : t("invoiceSuffixMany")
+              })}
             </Text>
           </View>
 
           <View className="flex-1 bg-white rounded-xl p-4 shadow-sm">
             <Text className="text-3xl mb-1">📋</Text>
-            <Text className="text-xs text-muted">Preventivi in attesa</Text>
+            <Text className="text-xs text-muted">{t("pendingQuotes")}</Text>
             <Text className="text-lg font-bold">{stats.pendingQuotes}</Text>
           </View>
         </View>
@@ -183,7 +188,7 @@ export default function DashboardScreen() {
           <View className="px-5 mb-4">
             <View className="bg-white rounded-xl p-4 shadow-sm">
               <Text className="text-3xl mb-1">🔨</Text>
-              <Text className="text-xs text-muted">Ultimo lavoro</Text>
+              <Text className="text-xs text-muted">{t("lastJob")}</Text>
               <Text className="text-base font-medium" numberOfLines={1}>
                 {stats.lastJobTitle}
               </Text>
@@ -202,9 +207,17 @@ export default function DashboardScreen() {
                   color="#dc2626"
                 />
                 <Text className="text-danger font-semibold ml-2">
-                  Da incassare ({stats.overdueCount})
+                  {t("toCollectCount", { count: String(stats.overdueCount) })}
                 </Text>
               </View>
+              <TouchableOpacity
+                onPress={() => router.push("/(tabs)/invoices/reminders" as any)}
+                className="mb-2"
+              >
+                <Text className="text-sm text-primary font-semibold">
+                  {t("manageAllReminders")}
+                </Text>
+              </TouchableOpacity>
               {overdueInvoices.map((inv) => {
                 const daysOverdue = inv.payment_due
                   ? Math.floor(
@@ -228,12 +241,12 @@ export default function DashboardScreen() {
                       )}
                       <Text className="text-xs text-red-500">
                         {daysOverdue > 0
-                          ? `${daysOverdue} giorni di ritardo`
-                          : "Scaduta"}
+                          ? t("daysLate", { days: String(daysOverdue) })
+                          : t("expired")}
                       </Text>
                     </View>
                     <Text className="text-sm font-bold text-red-900 mr-3">
-                      {formatCurrency(inv.total)}
+                      {formatCurrency(inv.total, locale)}
                     </Text>
                     <TouchableOpacity
                       onPress={async () => {
@@ -248,17 +261,17 @@ export default function DashboardScreen() {
                             Haptics.NotificationFeedbackType.Success
                           );
                           Alert.alert(
-                            "Sollecito inviato",
-                            `Sollecito per ${inv.invoice_number} registrato`
+                            t("reminderSent"),
+                            t("reminderForInvoice", { number: inv.invoice_number })
                           );
                         } catch {
-                          Alert.alert("Errore", "Invio sollecito fallito");
+                          Alert.alert(t("error"), t("sendReminderFailed"));
                         }
                       }}
                       className="bg-red-600 rounded-lg px-3 py-1.5"
                     >
                       <Text className="text-xs text-white font-medium">
-                        Sollecita
+                        {t("sendReminder")}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -274,6 +287,78 @@ export default function DashboardScreen() {
             income={stats.monthIncome}
             expenses={stats.monthExpenses}
           />
+        </View>
+
+        {/* View stats link */}
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)/stats")}
+          className="mx-5 mb-4 bg-blue-50 rounded-xl p-4 flex-row items-center"
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="chart-bar" size={24} color="#2563eb" />
+          <Text className="flex-1 ml-3 text-primary font-semibold">
+            {t("viewStats")}
+          </Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color="#2563eb"
+          />
+        </TouchableOpacity>
+
+        <View className="mx-5 bg-white rounded-xl p-4 mb-4">
+          <Text className="text-xs font-semibold text-gray-500 uppercase mb-3">
+            {t("moreTools")}
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/quotes" as any)}
+              className="w-[48%] bg-gray-50 rounded-lg px-3 py-3 flex-row items-center"
+            >
+              <MaterialCommunityIcons
+                name="file-document-outline"
+                size={18}
+                color="#2563eb"
+              />
+              <Text className="text-sm text-gray-700 ml-2">{t("tabQuotes")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/inbox" as any)}
+              className="w-[48%] bg-gray-50 rounded-lg px-3 py-3 flex-row items-center"
+            >
+              <MaterialCommunityIcons
+                name="inbox-arrow-down"
+                size={18}
+                color="#2563eb"
+              />
+              <Text className="text-sm text-gray-700 ml-2">{t("tabInbox")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/stats" as any)}
+              className="w-[48%] bg-gray-50 rounded-lg px-3 py-3 flex-row items-center"
+            >
+              <MaterialCommunityIcons name="chart-bar" size={18} color="#2563eb" />
+              <Text className="text-sm text-gray-700 ml-2">{t("tabStats")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/other-services" as any)}
+              className="w-[48%] bg-gray-50 rounded-lg px-3 py-3 flex-row items-center"
+            >
+              <MaterialCommunityIcons
+                name="view-grid-plus-outline"
+                size={18}
+                color="#2563eb"
+              />
+              <Text className="text-sm text-gray-700 ml-2">{t("tabOtherServices")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/settings" as any)}
+              className="w-[48%] bg-gray-50 rounded-lg px-3 py-3 flex-row items-center"
+            >
+              <MaterialCommunityIcons name="cog" size={18} color="#2563eb" />
+              <Text className="text-sm text-gray-700 ml-2">{t("tabSettings")}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 

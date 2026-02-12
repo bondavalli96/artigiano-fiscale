@@ -18,6 +18,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
+import { useI18n } from "@/lib/i18n";
 import type { AIFlags } from "@/types";
 
 const CATEGORIES = [
@@ -29,6 +30,7 @@ const CATEGORIES = [
 ];
 
 export default function NewPassiveInvoiceScreen() {
+  const { t } = useI18n();
   const { artisan } = useArtisan();
   const [supplierName, setSupplierName] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -109,7 +111,7 @@ export default function NewPassiveInvoiceScreen() {
         Haptics.NotificationFeedbackType.Success
       );
     } catch (err: any) {
-      Alert.alert("Errore", "Analisi fallita: " + (err.message || ""));
+      Alert.alert(t("error"), t("analysisFailed") + ": " + (err.message || ""));
     } finally {
       setAnalyzing(false);
     }
@@ -119,8 +121,8 @@ export default function NewPassiveInvoiceScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
-        "Permesso negato",
-        "Consenti l'accesso alla fotocamera nelle impostazioni"
+        t("permissionDenied"),
+        t("allowCameraAccess")
       );
       return;
     }
@@ -140,8 +142,8 @@ export default function NewPassiveInvoiceScreen() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
-        "Permesso negato",
-        "Consenti l'accesso alla galleria nelle impostazioni"
+        t("permissionDenied"),
+        t("allowGalleryAccess")
       );
       return;
     }
@@ -172,7 +174,7 @@ export default function NewPassiveInvoiceScreen() {
   const handleSave = async () => {
     if (!artisan) return;
     if (!supplierName.trim()) {
-      Alert.alert("Errore", "Inserisci il nome del fornitore");
+      Alert.alert(t("error"), t("enterSupplierName"));
       return;
     }
 
@@ -199,7 +201,7 @@ export default function NewPassiveInvoiceScreen() {
       );
       router.back();
     } catch (err: any) {
-      Alert.alert("Errore", err.message || "Errore durante il salvataggio");
+      Alert.alert(t("error"), err.message || t("saveError"));
     } finally {
       setSaving(false);
     }
@@ -207,7 +209,7 @@ export default function NewPassiveInvoiceScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Nuova Fattura Ricevuta" }} />
+      <Stack.Screen options={{ title: t("newPassiveInvoice") }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -221,7 +223,7 @@ export default function NewPassiveInvoiceScreen() {
           {!extracted && !analyzing && (
             <View className="mb-6">
               <Text className="text-base font-semibold text-gray-700 mb-3">
-                Carica fattura
+                {t("uploadInvoice")}
               </Text>
               <View className="gap-3">
                 <TouchableOpacity
@@ -235,10 +237,10 @@ export default function NewPassiveInvoiceScreen() {
                   />
                   <View className="ml-3">
                     <Text className="text-base font-medium text-primary">
-                      Scatta Foto
+                      {t("takePhoto")}
                     </Text>
                     <Text className="text-xs text-muted">
-                      Fotografa la fattura
+                      {t("photographInvoice")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -254,10 +256,10 @@ export default function NewPassiveInvoiceScreen() {
                   />
                   <View className="ml-3">
                     <Text className="text-base font-medium text-primary">
-                      File PDF/XML
+                      {t("filePdfXml")}
                     </Text>
                     <Text className="text-xs text-muted">
-                      Seleziona dal file system
+                      {t("selectFromFiles")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -273,10 +275,10 @@ export default function NewPassiveInvoiceScreen() {
                   />
                   <View className="ml-3">
                     <Text className="text-base font-medium text-primary">
-                      Da Galleria
+                      {t("fromGallery")}
                     </Text>
                     <Text className="text-xs text-muted">
-                      Scegli una foto esistente
+                      {t("chooseExistingPhoto")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -287,7 +289,7 @@ export default function NewPassiveInvoiceScreen() {
                   onPress={() => setExtracted(true)}
                 >
                   <Text className="text-sm text-primary">
-                    oppure inserisci manualmente
+                    {t("orEnterManually")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -299,7 +301,7 @@ export default function NewPassiveInvoiceScreen() {
             <View className="items-center py-12">
               <ActivityIndicator size="large" color="#2563eb" />
               <Text className="text-primary font-medium mt-4">
-                Sto analizzando la fattura...
+                {t("analyzingInvoice")}
               </Text>
             </View>
           )}
@@ -314,7 +316,7 @@ export default function NewPassiveInvoiceScreen() {
                   color="#d97706"
                 />
                 <Text className="text-sm text-yellow-800 font-medium ml-2">
-                  Attenzione
+                  {t("warning")}
                 </Text>
               </View>
               <Text className="text-sm text-yellow-700 mt-1">
@@ -327,27 +329,29 @@ export default function NewPassiveInvoiceScreen() {
           {(extracted || analyzing) && !analyzing && (
             <View>
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Fornitore
+                {t("supplier")}
               </Text>
               <TextInput
                 className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50 mb-3"
-                placeholder="Nome fornitore"
+                placeholder={t("supplierPlaceholder")}
+                placeholderTextColor="#9ca3af"
                 value={supplierName}
                 onChangeText={setSupplierName}
               />
 
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Numero Fattura
+                {t("invoiceNumber")}
               </Text>
               <TextInput
                 className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50 mb-3"
-                placeholder="Es. FT-2026-001"
+                placeholder={t("invoiceNumberPlaceholder")}
+                placeholderTextColor="#9ca3af"
                 value={invoiceNumber}
                 onChangeText={setInvoiceNumber}
               />
 
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Categoria
+                {t("category")}
               </Text>
               <View className="flex-row flex-wrap gap-2 mb-3">
                 {CATEGORIES.map((cat) => (
@@ -376,24 +380,26 @@ export default function NewPassiveInvoiceScreen() {
               <View className="flex-row gap-3 mb-3">
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-gray-700 mb-1">
-                    Imponibile (€)
+                    {t("subtotalEur")}
                   </Text>
                   <TextInput
                     className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
                     keyboardType="decimal-pad"
                     placeholder="0.00"
+                    placeholderTextColor="#9ca3af"
                     value={subtotal}
                     onChangeText={setSubtotal}
                   />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-gray-700 mb-1">
-                    IVA (€)
+                    {t("vatEur")}
                   </Text>
                   <TextInput
                     className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
                     keyboardType="decimal-pad"
                     placeholder="0.00"
+                    placeholderTextColor="#9ca3af"
                     value={vatAmount}
                     onChangeText={setVatAmount}
                   />
@@ -401,12 +407,13 @@ export default function NewPassiveInvoiceScreen() {
               </View>
 
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Totale (€)
+                {t("totalEur")}
               </Text>
               <TextInput
                 className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50 mb-3"
                 keyboardType="decimal-pad"
                 placeholder="0.00"
+                placeholderTextColor="#9ca3af"
                 value={total}
                 onChangeText={setTotal}
               />
@@ -414,22 +421,24 @@ export default function NewPassiveInvoiceScreen() {
               <View className="flex-row gap-3 mb-3">
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-gray-700 mb-1">
-                    Data Emissione
+                    {t("issueDate")}
                   </Text>
                   <TextInput
                     className="border border-gray-300 rounded-xl px-4 py-3 text-sm bg-gray-50"
                     placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#9ca3af"
                     value={issueDate}
                     onChangeText={setIssueDate}
                   />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-gray-700 mb-1">
-                    Scadenza
+                    {t("paymentDueDate")}
                   </Text>
                   <TextInput
                     className="border border-gray-300 rounded-xl px-4 py-3 text-sm bg-gray-50"
                     placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#9ca3af"
                     value={paymentDue}
                     onChangeText={setPaymentDue}
                   />
@@ -437,11 +446,12 @@ export default function NewPassiveInvoiceScreen() {
               </View>
 
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Note
+                {t("notes")}
               </Text>
               <TextInput
                 className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50 min-h-[60]"
-                placeholder="Note aggiuntive..."
+                placeholder={t("additionalNotes")}
+                placeholderTextColor="#9ca3af"
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -466,7 +476,7 @@ export default function NewPassiveInvoiceScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text className="text-white text-lg font-semibold">
-                  Conferma e Salva
+                  {t("confirmAndSave")}
                 </Text>
               )}
             </TouchableOpacity>

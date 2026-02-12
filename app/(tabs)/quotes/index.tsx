@@ -12,18 +12,20 @@ import { useArtisan } from "@/hooks/useArtisan";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDateShort } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n";
 import type { Quote, QuoteStatus } from "@/types";
 
-const FILTERS: { label: string; value: QuoteStatus | "all" }[] = [
-  { label: "Tutti", value: "all" },
-  { label: "Bozza", value: "draft" },
-  { label: "Inviato", value: "sent" },
-  { label: "Accettato", value: "accepted" },
-  { label: "Rifiutato", value: "rejected" },
-];
-
 export default function QuotesListScreen() {
+  const { t } = useI18n();
   const { artisan } = useArtisan();
+
+  const FILTERS: { label: string; value: QuoteStatus | "all" }[] = [
+    { label: t("all"), value: "all" },
+    { label: t("statusDraft"), value: "draft" },
+    { label: t("statusSent"), value: "sent" },
+    { label: t("statusAccepted"), value: "accepted" },
+    { label: t("statusRejected"), value: "rejected" },
+  ];
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [filter, setFilter] = useState<QuoteStatus | "all">("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -60,9 +62,9 @@ export default function QuotesListScreen() {
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Preventivi" }} />
+        <Stack.Screen options={{ title: t("quotesTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Caricamento...</Text>
+          <Text className="text-muted">{t("loading")}</Text>
         </View>
       </>
     );
@@ -70,7 +72,7 @@ export default function QuotesListScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Preventivi" }} />
+      <Stack.Screen options={{ title: t("quotesTitle") }} />
       <View className="flex-1 bg-gray-50">
         {/* Filter chips */}
         <View className="flex-row px-4 py-3 gap-2">
@@ -98,8 +100,8 @@ export default function QuotesListScreen() {
         {quotes.length === 0 ? (
           <EmptyState
             icon="file-document-outline"
-            title="Nessun preventivo"
-            description="Crea un lavoro e poi genera il preventivo"
+            title={t("noQuotes")}
+            description={t("createJobThenQuote")}
           />
         ) : (
           <FlatList
@@ -127,7 +129,7 @@ export default function QuotesListScreen() {
                   className="text-base font-semibold mb-1"
                   numberOfLines={1}
                 >
-                  {item.job?.title || "Lavoro"}
+                  {item.job?.title || t("job")}
                 </Text>
                 {item.client && (
                   <Text className="text-sm text-muted">{item.client.name}</Text>

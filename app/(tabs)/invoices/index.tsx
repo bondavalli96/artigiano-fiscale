@@ -7,24 +7,27 @@ import {
   FlatList,
 } from "react-native";
 import { Stack, router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDateShort } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n";
 import type { InvoiceActive, InvoiceActiveStatus } from "@/types";
 
 type Tab = "active" | "passive";
 
-const ACTIVE_FILTERS: { label: string; value: InvoiceActiveStatus | "all" }[] = [
-  { label: "Tutte", value: "all" },
-  { label: "Inviate", value: "sent" },
-  { label: "Pagate", value: "paid" },
-  { label: "Scadute", value: "overdue" },
-];
-
 export default function InvoicesScreen() {
+  const { t } = useI18n();
   const { artisan } = useArtisan();
+
+  const ACTIVE_FILTERS: { label: string; value: InvoiceActiveStatus | "all" }[] = [
+    { label: t("allFem"), value: "all" },
+    { label: t("sent"), value: "sent" },
+    { label: t("paid"), value: "paid" },
+    { label: t("overdue"), value: "overdue" },
+  ];
   const [tab, setTab] = useState<Tab>("active");
   const [invoices, setInvoices] = useState<InvoiceActive[]>([]);
   const [filter, setFilter] = useState<InvoiceActiveStatus | "all">("all");
@@ -64,7 +67,7 @@ export default function InvoicesScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Fatture" }} />
+      <Stack.Screen options={{ title: t("invoicesTitle") }} />
       <View className="flex-1 bg-gray-50">
         {/* Segmented control */}
         <View className="flex-row bg-white px-4 py-3 gap-2">
@@ -79,7 +82,7 @@ export default function InvoicesScreen() {
                 tab === "active" ? "text-white" : "text-gray-600"
               }`}
             >
-              Emesse
+              {t("issued")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -96,8 +99,19 @@ export default function InvoicesScreen() {
                 tab === "passive" ? "text-white" : "text-gray-600"
               }`}
             >
-              Ricevute
+              {t("received")}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              router.push("/(tabs)/invoices/reminders" as any)
+            }
+            className="py-2.5 px-4 rounded-xl items-center bg-warning"
+          >
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons name="bell-ring" size={16} color="white" />
+              <Text className="text-white font-semibold ml-1">{t("reminders")}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -128,13 +142,13 @@ export default function InvoicesScreen() {
 
             {loading ? (
               <View className="flex-1 items-center justify-center">
-                <Text className="text-muted">Caricamento...</Text>
+                <Text className="text-muted">{t("loading")}</Text>
               </View>
             ) : invoices.length === 0 ? (
               <EmptyState
                 icon="currency-eur"
-                title="Nessuna fattura"
-                description="Le fatture appariranno qui quando convertirai un preventivo"
+                title={t("noInvoices")}
+                description={t("invoicesAppearHere")}
               />
             ) : (
               <FlatList
@@ -179,7 +193,7 @@ export default function InvoicesScreen() {
                         </Text>
                         {item.payment_due && (
                           <Text className="text-xs text-muted">
-                            Scad. {formatDateShort(item.payment_due)}
+                            {t("dueDate", { date: formatDateShort(item.payment_due) })}
                           </Text>
                         )}
                       </View>

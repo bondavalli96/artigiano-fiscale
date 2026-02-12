@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  FlatList,
 } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -17,9 +18,12 @@ import { supabase } from "@/lib/supabase";
 import { useArtisan } from "@/hooks/useArtisan";
 import { QuoteEditor } from "@/components/QuoteEditor";
 import { formatDateShort } from "@/lib/utils/format";
-import type { Quote, QuoteItem, Job, PriceListItem } from "@/types";
+import { QuickShareButtons } from "@/components/QuickShareButtons";
+import { useI18n } from "@/lib/i18n";
+import type { Quote, QuoteItem, Job, PriceListItem, QuoteTemplate } from "@/types";
 
 export default function QuoteDetailScreen() {
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { artisan } = useArtisan();
 
@@ -35,6 +39,10 @@ export default function QuoteDetailScreen() {
   const [sendingPdf, setSendingPdf] = useState(false);
   const [isAIDraft, setIsAIDraft] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [templates, setTemplates] = useState<QuoteTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Load existing quote or fetch job to generate one
   useEffect(() => {
@@ -52,8 +60,16 @@ export default function QuoteDetailScreen() {
 
       if (existingQuote) {
         setQuote(existingQuote);
-        setItems(existingQuote.items || []);
-        setVatRate(existingQuote.vat_rate || 22);
+        setItems(
+          (existingQuote.items || []).map((i: any) => ({
+            description: i.description || "",
+            quantity: i.quantity ?? i.qty ?? 0,
+            unit: i.unit || "ore",
+            unit_price: i.unit_price ?? 0,
+            total: i.total ?? 0,
+          }))
+        );
+        setVatRate(existingQuote.vat_rate || artisan.default_vat_rate || 22);
         setNotes(existingQuote.notes || "");
         setValidUntil(existingQuote.valid_until || "");
         setJob(existingQuote.job || null);
@@ -74,12 +90,46 @@ export default function QuoteDetailScreen() {
         const thirtyDays = new Date();
         thirtyDays.setDate(thirtyDays.getDate() + 30);
         setValidUntil(thirtyDays.toISOString().split("T")[0]);
+        if (artisan.default_vat_rate) {
+          setVatRate(artisan.default_vat_rate);
+        }
+      }
+
+      // Fetch available templates
+      if (artisan) {
+        const { data: tplData } = await supabase
+          .from("quote_templates")
+          .select("*")
+          .eq("artisan_id", artisan.id)
+          .order("usage_count", { ascending: false });
+        setTemplates(tplData || []);
       }
 
       setLoading(false);
     };
     load();
   }, [id, artisan]);
+
+  // Apply template to current quote
+  const applyTemplate = useCallback(
+    async (template: QuoteTemplate) => {
+      setItems(template.items);
+      setVatRate(template.vat_rate || artisan?.default_vat_rate || 22);
+      if (template.notes) setNotes(template.notes);
+      setShowTemplates(false);
+
+      // Increment usage count
+      await supabase
+        .from("quote_templates")
+        .update({ usage_count: (template.usage_count || 0) + 1 })
+        .eq("id", template.id);
+
+      await Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      );
+    },
+    [artisan?.default_vat_rate]
+  );
 
   // Generate AI quote suggestion
   const generateAIQuote = useCallback(async () => {
@@ -125,8 +175,8 @@ export default function QuoteDetailScreen() {
       }
     } catch (err: any) {
       Alert.alert(
-        "Errore",
-        "Generazione AI fallita: " + (err.message || "")
+        t("error"),
+        t("aiGenerationFailed") + ": " + (err.message || "")
       );
     } finally {
       setGenerating(false);
@@ -138,7 +188,7 @@ export default function QuoteDetailScreen() {
     async (andSend = false) => {
       if (!artisan || !job) return;
       if (items.length === 0) {
-        Alert.alert("Errore", "Aggiungi almeno una voce al preventivo");
+        Alert.alert(t("error"), t("addAtLeastOneItem"));
         return;
       }
 
@@ -211,10 +261,10 @@ export default function QuoteDetailScreen() {
         if (andSend) {
           await handleGenerateAndShare();
         } else {
-          Alert.alert("Salvato", "Preventivo salvato come bozza");
+          Alert.alert(t("saved"), t("quoteSavedAsDraft"));
         }
       } catch (err: any) {
-        Alert.alert("Errore", err.message || "Errore durante il salvataggio");
+        Alert.alert(t("error"), err.message || t("saveError"));
       } finally {
         setSaving(false);
       }
@@ -244,12 +294,16 @@ export default function QuoteDetailScreen() {
             number: quoteNumber,
             artisan: {
               business_name: artisan.business_name,
+              company_registration_number: artisan.company_registration_number,
               vat_number: artisan.vat_number,
               fiscal_code: artisan.fiscal_code,
               address: artisan.address,
               phone: artisan.phone,
               email: artisan.email,
+              website: artisan.website,
               sdi_code: artisan.sdi_code,
+              logo_url: artisan.logo_url,
+              signature_url: artisan.signature_url,
             },
             client: job.client
               ? {
@@ -266,6 +320,10 @@ export default function QuoteDetailScreen() {
             total,
             notes: notes.trim() || undefined,
             valid_until: validUntil || undefined,
+            template_key: artisan.invoice_template_key || "classic",
+            template_file_url: artisan.invoice_template_file_url || undefined,
+            field_visibility: artisan.invoice_field_visibility || undefined,
+            payment_methods: artisan.payment_methods || undefined,
             date: formatDateShort(new Date()),
           },
         }
@@ -300,7 +358,7 @@ export default function QuoteDetailScreen() {
         Haptics.NotificationFeedbackType.Success
       );
     } catch (err: any) {
-      Alert.alert("Errore", "Generazione PDF fallita: " + (err.message || ""));
+      Alert.alert(t("error"), t("pdfGenerationFailed") + ": " + (err.message || ""));
     } finally {
       setSendingPdf(false);
     }
@@ -335,12 +393,16 @@ export default function QuoteDetailScreen() {
             number: invoiceNumber,
             artisan: {
               business_name: artisan.business_name,
+              company_registration_number: artisan.company_registration_number,
               vat_number: artisan.vat_number,
               fiscal_code: artisan.fiscal_code,
               address: artisan.address,
               phone: artisan.phone,
               email: artisan.email,
+              website: artisan.website,
               sdi_code: artisan.sdi_code,
+              logo_url: artisan.logo_url,
+              signature_url: artisan.signature_url,
             },
             client: quote.client
               ? {
@@ -363,6 +425,10 @@ export default function QuoteDetailScreen() {
             vat_amount: quote.vat_amount,
             total: quote.total,
             payment_due: formatDateShort(paymentDue),
+            template_key: artisan.invoice_template_key || "classic",
+            template_file_url: artisan.invoice_template_file_url || undefined,
+            field_visibility: artisan.invoice_field_visibility || undefined,
+            payment_methods: artisan.payment_methods || undefined,
             date: formatDateShort(new Date()),
           },
         }
@@ -397,26 +463,112 @@ export default function QuoteDetailScreen() {
         Haptics.NotificationFeedbackType.Success
       );
       Alert.alert(
-        "Fattura Creata",
-        `Fattura ${invoiceNumber} creata con successo`,
+        t("invoiceCreated"),
+        t("invoiceCreatedMsg", { number: invoiceNumber }),
         [
           {
-            text: "Vai alle Fatture",
+            text: t("goToInvoices"),
             onPress: () => router.push("/(tabs)/invoices" as any),
           },
         ]
       );
     } catch (err: any) {
-      Alert.alert("Errore", err.message || "Errore durante la conversione");
+      Alert.alert(t("error"), err.message || t("saveError"));
     } finally {
       setConverting(false);
     }
   }, [artisan, quote, job]);
 
+  const handleDuplicateQuote = useCallback(async () => {
+    if (!artisan || !quote || !job) return;
+
+    setDuplicating(true);
+    try {
+      const { count } = await supabase
+        .from("quotes")
+        .select("id", { count: "exact", head: true })
+        .eq("artisan_id", artisan.id);
+
+      const nextNumber = `PRV-${new Date().getFullYear()}-${String(
+        (count || 0) + 1
+      ).padStart(3, "0")}`;
+
+      const { data: duplicated, error } = await supabase
+        .from("quotes")
+        .insert({
+          job_id: job.id,
+          artisan_id: artisan.id,
+          client_id: quote.client_id,
+          quote_number: nextNumber,
+          status: "draft",
+          items: quote.items,
+          subtotal: quote.subtotal,
+          vat_rate: quote.vat_rate,
+          vat_amount: quote.vat_amount,
+          total: quote.total,
+          notes: quote.notes,
+          valid_until: quote.valid_until,
+        })
+        .select("*, client:clients(*), job:jobs(*)")
+        .single();
+
+      if (error) throw error;
+
+      setQuote(duplicated);
+      setItems(
+        (duplicated.items || []).map((i: any) => ({
+          description: i.description || "",
+          quantity: i.quantity ?? i.qty ?? 0,
+          unit: i.unit || "ore",
+          unit_price: i.unit_price ?? 0,
+          total: i.total ?? 0,
+        }))
+      );
+      setVatRate(duplicated.vat_rate || artisan.default_vat_rate || 22);
+      setNotes(duplicated.notes || "");
+      setValidUntil(duplicated.valid_until || "");
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(t("saved"), t("quoteDuplicated"));
+    } catch (err: any) {
+      Alert.alert(t("error"), err.message || t("saveError"));
+    } finally {
+      setDuplicating(false);
+    }
+  }, [artisan, quote, job]);
+
+  const handleDeleteQuote = useCallback(() => {
+    if (!quote) return;
+
+    Alert.alert(t("delete"), t("deleteQuoteConfirm"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("delete"),
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            const { error } = await supabase.from("quotes").delete().eq("id", quote.id);
+            if (error) throw error;
+
+            await Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success
+            );
+            router.push("/(tabs)/quotes" as any);
+          } catch (err: any) {
+            Alert.alert(t("error"), err.message || t("saveError"));
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  }, [quote, t]);
+
   if (loading) {
     return (
       <>
-        <Stack.Screen options={{ title: "Preventivo" }} />
+        <Stack.Screen options={{ title: t("quoteTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
@@ -427,9 +579,9 @@ export default function QuoteDetailScreen() {
   if (!job) {
     return (
       <>
-        <Stack.Screen options={{ title: "Preventivo" }} />
+        <Stack.Screen options={{ title: t("quoteTitle") }} />
         <View className="flex-1 items-center justify-center bg-white">
-          <Text className="text-muted">Lavoro non trovato</Text>
+          <Text className="text-muted">{t("jobNotFound")}</Text>
         </View>
       </>
     );
@@ -439,7 +591,7 @@ export default function QuoteDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: quote ? `Prev. ${quote.quote_number}` : "Nuovo Preventivo",
+          title: quote ? `Prev. ${quote.quote_number}` : t("newQuoteTitle"),
         }}
       />
       <KeyboardAvoidingView
@@ -455,25 +607,35 @@ export default function QuoteDetailScreen() {
         </View>
 
         {/* AI generate button or editor */}
-        {items.length === 0 && !generating ? (
+        {items.length === 0 && !generating && !showTemplates ? (
           <View className="flex-1 items-center justify-center px-6">
             <Text className="text-6xl mb-4">🤖</Text>
             <Text className="text-lg font-semibold text-center mb-2">
-              Genera preventivo con AI
+              {t("generateAIQuote")}
             </Text>
             <Text className="text-sm text-muted text-center mb-6">
-              L'AI analizzerà il lavoro e il tuo listino per creare una bozza
-              di preventivo che potrai modificare liberamente
+              {t("aiQuoteDesc")}
             </Text>
             <TouchableOpacity
               onPress={generateAIQuote}
-              className="bg-primary rounded-xl py-4 px-8"
+              className="bg-primary rounded-xl py-4 px-8 w-full items-center"
               activeOpacity={0.8}
             >
               <Text className="text-white text-lg font-semibold">
-                Genera Bozza AI
+                {t("generateAIDraft")}
               </Text>
             </TouchableOpacity>
+            {templates.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setShowTemplates(true)}
+                className="mt-3 border border-primary rounded-xl py-3.5 px-8 w-full items-center"
+                activeOpacity={0.8}
+              >
+                <Text className="text-primary font-semibold">
+                  {t("useTemplate", { count: String(templates.length) })}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={() =>
                 setItems([
@@ -489,15 +651,55 @@ export default function QuoteDetailScreen() {
               className="mt-4"
             >
               <Text className="text-primary text-sm">
-                oppure crea manualmente
+                {t("orCreateManually")}
               </Text>
             </TouchableOpacity>
+          </View>
+        ) : items.length === 0 && !generating && showTemplates ? (
+          <View className="flex-1">
+            <View className="px-4 py-3 flex-row items-center justify-between">
+              <Text className="text-base font-semibold">{t("chooseTemplate")}</Text>
+              <TouchableOpacity onPress={() => setShowTemplates(false)}>
+                <Text className="text-primary text-sm">{t("back")}</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={templates}
+              keyExtractor={(t) => t.id}
+              renderItem={({ item: tpl }) => {
+                const subtotal = tpl.items.reduce(
+                  (sum: number, i: QuoteItem) => sum + i.quantity * i.unit_price,
+                  0
+                );
+                return (
+                  <TouchableOpacity
+                    onPress={() => applyTemplate(tpl)}
+                    className="bg-white mx-4 mb-2 rounded-xl p-4 border border-gray-100"
+                    activeOpacity={0.7}
+                  >
+                    <Text className="text-base font-semibold">{tpl.name}</Text>
+                    {tpl.description && (
+                      <Text className="text-sm text-muted" numberOfLines={1}>
+                        {tpl.description}
+                      </Text>
+                    )}
+                    <Text className="text-xs text-muted mt-1">
+                      {t("templateItemsCount", { count: String(tpl.items.length) })} · {t("totalSubtotal")}:{" "}
+                      {new Intl.NumberFormat("it-IT", {
+                        style: "currency",
+                        currency: "EUR",
+                      }).format(subtotal)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
           </View>
         ) : generating ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color="#2563eb" />
             <Text className="text-primary font-medium mt-4">
-              Sto generando il preventivo...
+              {t("generatingQuote")}
             </Text>
           </View>
         ) : (
@@ -513,11 +715,12 @@ export default function QuoteDetailScreen() {
             {/* Notes */}
             <View className="px-4 pb-2">
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Note
+                {t("notes")}
               </Text>
               <TextInput
                 className="border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white min-h-[60]"
-                placeholder="Note aggiuntive..."
+                placeholder={t("additionalNotes")}
+                placeholderTextColor="#9ca3af"
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -528,11 +731,12 @@ export default function QuoteDetailScreen() {
             {/* Valid until */}
             <View className="px-4 pb-2">
               <Text className="text-sm font-medium text-gray-700 mb-1">
-                Valido fino al (YYYY-MM-DD)
+                {t("validUntil")}
               </Text>
               <TextInput
                 className="border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white"
                 placeholder="2026-03-11"
+                placeholderTextColor="#9ca3af"
                 value={validUntil}
                 onChangeText={setValidUntil}
               />
@@ -544,49 +748,105 @@ export default function QuoteDetailScreen() {
         {items.length > 0 && (
           <View className="bg-white border-t border-gray-100 px-5 py-4">
             {quote?.status === "accepted" ? (
-              <TouchableOpacity
-                onPress={handleConvertToInvoice}
-                disabled={converting}
-                className="bg-success rounded-xl py-4 items-center"
-                activeOpacity={0.8}
-              >
-                {converting ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text className="text-white text-lg font-semibold">
-                    Crea Fattura
-                  </Text>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <View className="flex-row gap-3">
+              <>
                 <TouchableOpacity
-                  onPress={() => handleSave(false)}
-                  disabled={saving}
-                  className="flex-1 border border-primary rounded-xl py-3.5 items-center"
+                  onPress={handleConvertToInvoice}
+                  disabled={converting}
+                  className="bg-success rounded-xl py-4 items-center"
                   activeOpacity={0.8}
                 >
-                  {saving ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
+                  {converting ? (
+                    <ActivityIndicator size="small" color="white" />
                   ) : (
-                    <Text className="text-primary font-semibold">
-                      Salva Bozza
+                    <Text className="text-white text-lg font-semibold">
+                      {t("createInvoice")}
                     </Text>
+                  )}
+                </TouchableOpacity>
+                {quote?.pdf_url && (
+                  <QuickShareButtons
+                    pdfUrl={quote.pdf_url}
+                    clientPhone={quote.client?.phone || job?.client?.phone || null}
+                    clientEmail={quote.client?.email || job?.client?.email || null}
+                    documentType="preventivo"
+                    documentNumber={quote.quote_number}
+                    total={quote.total}
+                    artisanName={artisan?.business_name || ""}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => handleSave(false)}
+                    disabled={saving}
+                    className="flex-1 border border-primary rounded-xl py-3.5 items-center"
+                    activeOpacity={0.8}
+                  >
+                    {saving ? (
+                      <ActivityIndicator size="small" color="#2563eb" />
+                    ) : (
+                      <Text className="text-primary font-semibold">
+                        {t("saveDraft")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleSave(true)}
+                    disabled={saving || sendingPdf}
+                    className="flex-1 bg-primary rounded-xl py-3.5 items-center"
+                    activeOpacity={0.8}
+                  >
+                    {sendingPdf ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Text className="text-white font-semibold">
+                        {t("generatePdfSend")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                {quote?.pdf_url && (
+                  <QuickShareButtons
+                    pdfUrl={quote.pdf_url}
+                    clientPhone={quote.client?.phone || job?.client?.phone || null}
+                    clientEmail={quote.client?.email || job?.client?.email || null}
+                    documentType="preventivo"
+                    documentNumber={quote.quote_number}
+                    total={quote.total}
+                    artisanName={artisan?.business_name || ""}
+                  />
+                )}
+              </>
+            )}
+
+            {quote && (
+              <View className="flex-row gap-2 mt-2">
+                <TouchableOpacity
+                  onPress={handleDuplicateQuote}
+                  disabled={duplicating}
+                  className="flex-1 border border-gray-300 rounded-xl py-2.5 items-center"
+                  activeOpacity={0.8}
+                >
+                  {duplicating ? (
+                    <ActivityIndicator size="small" color="#6b7280" />
+                  ) : (
+                    <Text className="text-gray-700 font-medium">{t("duplicate")}</Text>
                   )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => handleSave(true)}
-                  disabled={saving || sendingPdf}
-                  className="flex-1 bg-primary rounded-xl py-3.5 items-center"
+                  onPress={handleDeleteQuote}
+                  disabled={deleting}
+                  className="flex-1 border border-red-300 rounded-xl py-2.5 items-center"
                   activeOpacity={0.8}
                 >
-                  {sendingPdf ? (
-                    <ActivityIndicator size="small" color="white" />
+                  {deleting ? (
+                    <ActivityIndicator size="small" color="#dc2626" />
                   ) : (
-                    <Text className="text-white font-semibold">
-                      Genera PDF e Invia
-                    </Text>
+                    <Text className="text-danger font-medium">{t("delete")}</Text>
                   )}
                 </TouchableOpacity>
               </View>
