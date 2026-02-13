@@ -16,6 +16,11 @@ import { useColorScheme } from "@/components/useColorScheme";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PushNotificationRegistrar } from "@/components/PushNotificationRegistrar";
 import { I18nProvider } from "@/lib/i18n";
+import { initializeSentry } from "@/lib/sentry";
+import { useAuth } from "@/hooks/useAuth";
+
+// Initialize Sentry BEFORE app renders
+initializeSentry();
 
 export { ErrorBoundary } from "expo-router";
 
@@ -50,6 +55,24 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { user, artisan } = useAuth();
+
+  // Update Sentry user context when auth changes
+  useEffect(() => {
+    if (user && artisan) {
+      import("@sentry/react-native").then((Sentry) => {
+        Sentry.setUser({
+          id: user.id,
+          email: user.email,
+          username: artisan.business_name,
+        });
+      });
+    } else {
+      import("@sentry/react-native").then((Sentry) => {
+        Sentry.setUser(null);
+      });
+    }
+  }, [user, artisan]);
 
   return (
     <I18nProvider>
