@@ -9,6 +9,19 @@ App mobile NATIVA per artigiani italiani (idraulici, elettricisti, muratori, ecc
 - Playwright: per test browser
 - Supabase MCP: per gestione database
 
+## Environment & Tokens
+
+**IMPORTANTE:** Supabase access token è disponibile nell'environment come `TOKEN_SUPABASE` o `SUPABASE_ACCESS_TOKEN`.
+
+Per deployment di Edge Functions, esporta il token prima:
+```bash
+export SUPABASE_ACCESS_TOKEN=$TOKEN_SUPABASE
+cd artigiano-app
+supabase functions deploy <function-name>
+```
+
+Project ID: `zvmvrhdcjprlbqfzslhg`
+
 ## Regole MCP e Plugin
 
 ### Context7
