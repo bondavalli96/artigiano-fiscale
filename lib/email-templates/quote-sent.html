@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preventivo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 32px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 24px;
+      border-bottom: 2px solid #10b981;
+      margin-bottom: 24px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #10b981;
+    }
+    .message {
+      margin: 24px 0;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    .quote-summary {
+      background-color: #f0fdf4;
+      border-left: 4px solid #10b981;
+      padding: 16px;
+      margin: 24px 0;
+      border-radius: 4px;
+    }
+    .cta-button {
+      display: inline-block;
+      background-color: #10b981;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 36px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 24px 0;
+      font-size: 16px;
+    }
+    .secondary-button {
+      display: inline-block;
+      background-color: #ffffff;
+      color: #10b981 !important;
+      text-decoration: none;
+      padding: 12px 32px;
+      border: 2px solid #10b981;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 8px;
+    }
+    .footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+    }
+    .valid-until {
+      background-color: #fef3c7;
+      padding: 12px;
+      border-radius: 4px;
+      text-align: center;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #92400e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">{{artisan_name}}</div>
+      <p style="margin: 8px 0 0 0; color: #64748b;">Preventivo N° {{quote_number}}</p>
+    </div>
+
+    <div class="message">
+      <p>Gentile {{client_name}},</p>
+      <p>Le inviamo in allegato il preventivo da Lei richiesto per i lavori di <strong>{{job_title}}</strong>.</p>
+      <p>Il preventivo è stato preparato con cura e attenzione ai dettagli sulla base delle Sue esigenze.</p>
+    </div>
+
+    <div class="quote-summary">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 14px; color: #065f46;">Importo Totale</span>
+        <span style="font-size: 24px; font-weight: bold; color: #047857;">€{{total}}</span>
+      </div>
+    </div>
+
+    {{#if valid_until}}
+    <div class="valid-until">
+      ⏰ Offerta valida fino al {{valid_until}}
+    </div>
+    {{/if}}
+
+    <div style="text-align: center; margin: 32px 0;">
+      {{#if accept_link}}
+      <a href="{{accept_link}}" class="cta-button">✅ Accetta il Preventivo</a>
+      <br>
+      {{/if}}
+      {{#if pdf_link}}
+      <a href="{{pdf_link}}" class="secondary-button">📄 Scarica PDF</a>
+      {{/if}}
+    </div>
+
+    <div class="message">
+      <p>Per qualsiasi chiarimento o modifica, non esiti a contattarci. Saremo lieti di assisterLa.</p>
+      <p>Cordiali saluti,<br><strong>{{artisan_name}}</strong></p>
+    </div>
+
+    <div class="footer">
+      <p>
+        {{#if artisan_email}}📧 <a href="mailto:{{artisan_email}}">{{artisan_email}}</a>{{/if}}
+        {{#if artisan_phone}}<br>📞 {{artisan_phone}}{{/if}}
+      </p>
+      <p style="margin-top: 16px; font-size: 12px;">
+        Questa email è stata inviata tramite ArtigianoAI
+      </p>
+    </div>
+  </div>
+</body>
+</html>
