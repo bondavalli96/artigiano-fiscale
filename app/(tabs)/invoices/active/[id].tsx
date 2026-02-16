@@ -8,6 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { Stack, useLocalSearchParams, router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
@@ -36,6 +37,7 @@ export default function InvoiceActiveDetailScreen() {
   const [sharing, setSharing] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sendingSdi, setSendingSdi] = useState(false);
 
   const fetchInvoice = useCallback(async () => {
     const { data } = await supabase
@@ -90,6 +92,46 @@ export default function InvoiceActiveDetailScreen() {
         },
       ]
     );
+  };
+
+  const handleSendToSdi = async () => {
+    if (!invoice || !artisan) return;
+
+    Alert.alert(t("sdiSendQuestion"), "", [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("send"),
+        onPress: async () => {
+          setSendingSdi(true);
+          try {
+            const { data, error } = await supabase.functions.invoke(
+              "send-to-sdi",
+              {
+                body: {
+                  action: "send",
+                  invoiceId: invoice.id,
+                  artisanId: artisan.id,
+                },
+              }
+            );
+            if (error) throw error;
+            if (data?.success) {
+              await Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success
+              );
+              Alert.alert(t("ok"), t("sdiSentSuccess"));
+              fetchInvoice();
+            } else {
+              Alert.alert(t("error"), data?.error || t("sdiSendFailed"));
+            }
+          } catch {
+            Alert.alert(t("error"), t("sdiSendFailed"));
+          } finally {
+            setSendingSdi(false);
+          }
+        },
+      },
+    ]);
   };
 
   const handleSharePdf = async () => {
@@ -348,20 +390,45 @@ export default function InvoiceActiveDetailScreen() {
           </View>
         ))}
 
+        {/* Reverse Charge banner */}
+        {invoice.reverse_charge && (
+          <View className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex-row items-start">
+            <MaterialCommunityIcons name="swap-horizontal-bold" size={18} color="#d97706" />
+            <View className="ml-2 flex-1">
+              <Text className="text-sm font-semibold text-amber-800">
+                {t("reverseCharge")}
+              </Text>
+              <Text className="text-xs text-amber-700 mt-0.5">
+                {invoice.reverse_charge_article}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Totals */}
         <View className="mt-4 pt-4 border-t border-gray-200">
           <View className="flex-row justify-between mb-1">
             <Text className="text-sm text-muted">{t("subtotal")}</Text>
             <Text className="text-sm">{formatCurrency(invoice.subtotal)}</Text>
           </View>
-          <View className="flex-row justify-between mb-1">
-            <Text className="text-sm text-muted">
-              {t("vatRate", { rate: String(invoice.vat_rate) })}
-            </Text>
-            <Text className="text-sm">
-              {formatCurrency(invoice.vat_amount)}
-            </Text>
-          </View>
+          {!invoice.reverse_charge && invoice.vat_rate > 0 && (
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-sm text-muted">
+                {t("vatRate", { rate: String(invoice.vat_rate) })}
+              </Text>
+              <Text className="text-sm">
+                {formatCurrency(invoice.vat_amount)}
+              </Text>
+            </View>
+          )}
+          {invoice.digital_stamp && (
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-sm text-muted">{t("digitalStamp")}</Text>
+              <Text className="text-sm">
+                {formatCurrency(invoice.digital_stamp_amount)}
+              </Text>
+            </View>
+          )}
           <View className="flex-row justify-between mt-2 pt-2 border-t border-gray-200">
             <Text className="text-xl font-bold">{t("total")}</Text>
             <Text className="text-xl font-bold text-primary">
@@ -369,6 +436,113 @@ export default function InvoiceActiveDetailScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Fiscal notes */}
+        {invoice.fiscal_notes && invoice.fiscal_notes.length > 0 && (
+          <View className="mt-4 bg-gray-50 rounded-xl p-3">
+            <Text className="text-xs font-semibold text-gray-500 uppercase mb-2">
+              {t("fiscalCompliance")}
+            </Text>
+            {invoice.fiscal_notes.map((note: string, idx: number) => (
+              <Text key={idx} className="text-xs text-gray-600 mb-1">
+                {note}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        {/* SdI Status */}
+        {artisan?.country_code === "IT" && (
+          <View className="mt-4 bg-white rounded-xl p-3">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <MaterialCommunityIcons
+                  name="file-send-outline"
+                  size={18}
+                  color={
+                    invoice.sdi_status === "delivered" || invoice.sdi_status === "accepted"
+                      ? "#16a34a"
+                      : invoice.sdi_status === "rejected"
+                      ? "#dc2626"
+                      : invoice.sdi_status === "sent"
+                      ? "#d97706"
+                      : "#6b7280"
+                  }
+                />
+                <Text className="text-sm font-medium ml-2">
+                  {t("sdiProvider")}
+                </Text>
+              </View>
+              <View
+                className={`rounded-full px-2.5 py-0.5 ${
+                  invoice.sdi_status === "delivered" || invoice.sdi_status === "accepted"
+                    ? "bg-green-100"
+                    : invoice.sdi_status === "rejected"
+                    ? "bg-red-100"
+                    : invoice.sdi_status === "sent"
+                    ? "bg-amber-100"
+                    : "bg-gray-100"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-medium ${
+                    invoice.sdi_status === "delivered" || invoice.sdi_status === "accepted"
+                      ? "text-green-700"
+                      : invoice.sdi_status === "rejected"
+                      ? "text-red-700"
+                      : invoice.sdi_status === "sent"
+                      ? "text-amber-700"
+                      : "text-gray-600"
+                  }`}
+                >
+                  {invoice.sdi_status === "not_sent" || !invoice.sdi_status
+                    ? t("sdiStatusNotSent")
+                    : invoice.sdi_status === "sent"
+                    ? t("sdiStatusSent")
+                    : invoice.sdi_status === "delivered"
+                    ? t("sdiStatusDelivered")
+                    : invoice.sdi_status === "rejected"
+                    ? t("sdiStatusRejected")
+                    : invoice.sdi_status === "accepted"
+                    ? t("sdiStatusAccepted")
+                    : invoice.sdi_status}
+                </Text>
+              </View>
+            </View>
+            {(!invoice.sdi_status || invoice.sdi_status === "not_sent") && (
+              <TouchableOpacity
+                onPress={handleSendToSdi}
+                disabled={sendingSdi}
+                className="mt-3 bg-primary rounded-lg py-2.5 items-center"
+                activeOpacity={0.8}
+              >
+                {sendingSdi ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white text-sm font-semibold">
+                    {t("sdiSendQuestion")}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+            {invoice.sdi_status === "rejected" && (
+              <TouchableOpacity
+                onPress={handleSendToSdi}
+                disabled={sendingSdi}
+                className="mt-3 bg-red-600 rounded-lg py-2.5 items-center"
+                activeOpacity={0.8}
+              >
+                {sendingSdi ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white text-sm font-semibold">
+                    {t("retry")}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Payment info */}
         {invoice.payment_due && (

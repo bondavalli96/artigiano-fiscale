@@ -69,6 +69,11 @@ interface PdfRequest {
   template_file_url?: string;
   field_visibility?: InvoiceFieldVisibility;
   payment_methods?: PaymentMethodsConfig;
+  // Fiscal compliance fields
+  digital_stamp?: boolean;
+  digital_stamp_amount?: number;
+  reverse_charge?: boolean;
+  fiscal_notes?: string[];
 }
 
 function escapeHtml(text: string): string {
@@ -269,7 +274,8 @@ function generateHtml(data: PdfRequest): string {
         <td>Imponibile:</td>
         <td class="right">${formatCurrency(data.subtotal)}</td>
       </tr>
-      ${visibility.vat_column ? `<tr><td>IVA (${data.vat_rate}%):</td><td class="right">${formatCurrency(data.vat_amount)}</td></tr>` : ""}
+      ${!data.reverse_charge && visibility.vat_column ? `<tr><td>IVA (${data.vat_rate}%):</td><td class="right">${formatCurrency(data.vat_amount)}</td></tr>` : ""}
+      ${data.digital_stamp ? `<tr><td>Marca da bollo:</td><td class="right">${formatCurrency(data.digital_stamp_amount || 2)}</td></tr>` : ""}
       <tr class="grand-total">
         <td>TOTALE:</td>
         <td class="right">${formatCurrency(data.total)}</td>
@@ -281,6 +287,8 @@ function generateHtml(data: PdfRequest): string {
     ${visibility.payment_method && paymentMethods ? `<p style="margin-top:8px;color:#6b7280;">Modalità di pagamento: ${escapeHtml(paymentMethods)}</p>` : ""}
 
     ${visibility.notes && data.notes ? `<div class="notes"><h3>Note</h3><p>${escapeHtml(data.notes)}</p></div>` : ""}
+
+    ${data.fiscal_notes && data.fiscal_notes.length > 0 ? `<div style="margin-top:16px;padding:10px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:10px;color:#6b7280;line-height:1.5;">${data.fiscal_notes.map((n: string) => `<p style="margin:2px 0;">${escapeHtml(n)}</p>`).join("")}</div>` : ""}
 
     ${
       visibility.signature && data.artisan.signature_url

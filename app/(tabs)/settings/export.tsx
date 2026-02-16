@@ -301,7 +301,7 @@ export default function ExportScreen() {
 
       if (compliance.warnings.length > 0) {
         Alert.alert(
-          t("fiscalCompliance"),
+          t("fiscalComplianceExport"),
           compliance.warnings.join("\n")
         );
       }
@@ -388,7 +388,7 @@ export default function ExportScreen() {
         </TouchableOpacity>
 
         <View className="bg-white rounded-xl p-4 mb-6">
-          <Text className="text-base font-semibold mb-2">{t("fiscalCompliance")}</Text>
+          <Text className="text-base font-semibold mb-2">{t("fiscalComplianceExport")}</Text>
           <Text className="text-sm text-muted">
             {t("country")}:{" "}
             {complianceCountry === "IT"

@@ -384,6 +384,50 @@ export default function QuoteDetailScreen() {
       const paymentDue = new Date();
       paymentDue.setDate(paymentDue.getDate() + 30);
 
+      // Get fiscal profile and client data for tax rules
+      const { data: fiscalProfile } = await supabase
+        .from("fiscal_profiles")
+        .select("regime")
+        .eq("artisan_id", artisan.id)
+        .single();
+
+      const clientRecord = quote.client || job?.client;
+      const { data: clientFull } = clientRecord
+        ? await supabase
+            .from("clients")
+            .select("client_type, business_sector")
+            .eq("id", clientRecord.id)
+            .single()
+        : { data: null };
+
+      // Apply tax rules (IT only)
+      let taxRules = null;
+      if (artisan.country_code === "IT" && fiscalProfile) {
+        const { data: rulesData } = await supabase.functions.invoke(
+          "apply-tax-rules",
+          {
+            body: {
+              regime_fiscale: fiscalProfile.regime,
+              client_type: clientFull?.client_type || "privato",
+              business_sector: clientFull?.business_sector || null,
+              intervention_type: job?.ai_extracted_data?.tipo_lavoro || null,
+              amount: quote.subtotal,
+              artisan_trade: artisan.trade,
+            },
+          }
+        );
+        taxRules = rulesData;
+      }
+
+      // Calculate final amounts based on tax rules
+      const finalVatRate = taxRules ? taxRules.vat_rate : quote.vat_rate;
+      const finalVatAmount = taxRules ? taxRules.vat_amount : quote.vat_amount;
+      const digitalStampAmount = taxRules?.digital_stamp ? taxRules.digital_stamp_amount : 0;
+      const finalTotal = quote.subtotal + finalVatAmount + digitalStampAmount;
+
+      // Build notes including fiscal mandatory notes
+      const allNotes = taxRules?.mandatory_notes?.join("\n") || "";
+
       // Generate invoice PDF
       const { data: pdfData } = await supabase.functions.invoke(
         "generate-pdf",
@@ -404,32 +448,30 @@ export default function QuoteDetailScreen() {
               logo_url: artisan.logo_url,
               signature_url: artisan.signature_url,
             },
-            client: quote.client
+            client: clientRecord
               ? {
-                  name: quote.client.name,
-                  address: quote.client.address,
-                  phone: quote.client.phone,
-                  email: quote.client.email,
-                }
-              : job?.client
-              ? {
-                  name: job.client.name,
-                  address: job.client.address,
-                  phone: job.client.phone,
-                  email: job.client.email,
+                  name: clientRecord.name,
+                  address: clientRecord.address,
+                  phone: clientRecord.phone,
+                  email: clientRecord.email,
                 }
               : undefined,
             items: quote.items,
             subtotal: quote.subtotal,
-            vat_rate: quote.vat_rate,
-            vat_amount: quote.vat_amount,
-            total: quote.total,
+            vat_rate: finalVatRate,
+            vat_amount: finalVatAmount,
+            total: finalTotal,
+            notes: allNotes || undefined,
             payment_due: formatDateShort(paymentDue),
             template_key: artisan.invoice_template_key || "classic",
             template_file_url: artisan.invoice_template_file_url || undefined,
             field_visibility: artisan.invoice_field_visibility || undefined,
             payment_methods: artisan.payment_methods || undefined,
             date: formatDateShort(new Date()),
+            digital_stamp: taxRules?.digital_stamp || false,
+            digital_stamp_amount: digitalStampAmount,
+            reverse_charge: taxRules?.reverse_charge || false,
+            fiscal_notes: taxRules?.mandatory_notes || [],
           },
         }
       );
@@ -442,11 +484,16 @@ export default function QuoteDetailScreen() {
         status: "sent",
         items: quote.items,
         subtotal: quote.subtotal,
-        vat_rate: quote.vat_rate,
-        vat_amount: quote.vat_amount,
-        total: quote.total,
+        vat_rate: finalVatRate,
+        vat_amount: finalVatAmount,
+        total: finalTotal,
         payment_due: paymentDue.toISOString().split("T")[0],
         pdf_url: pdfData?.pdfUrl || null,
+        reverse_charge: taxRules?.reverse_charge || false,
+        reverse_charge_article: taxRules?.reverse_charge_article || null,
+        digital_stamp: taxRules?.digital_stamp || false,
+        digital_stamp_amount: digitalStampAmount,
+        fiscal_notes: taxRules?.mandatory_notes || null,
       });
 
       if (error) throw error;

@@ -94,10 +94,29 @@ export default function ClientDetailScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
       >
         <View className="bg-white rounded-xl p-4 mb-3">
-          <Text className="text-xl font-bold mb-1">{client.name}</Text>
+          <View className="flex-row items-center mb-1">
+            <Text className="text-xl font-bold flex-1">{client.name}</Text>
+            {client.client_type === "azienda" && (
+              <View className="bg-blue-100 rounded-full px-2.5 py-0.5">
+                <Text className="text-xs text-primary font-medium">
+                  {t("clientAzienda")}
+                </Text>
+              </View>
+            )}
+          </View>
           {client.phone && <Text className="text-sm text-muted">{client.phone}</Text>}
           {client.email && <Text className="text-sm text-muted">{client.email}</Text>}
           {client.address && <Text className="text-sm text-muted mt-1">{client.address}</Text>}
+          {client.business_sector && (
+            <Text className="text-xs text-muted mt-1">
+              {t("businessSector")}: {client.business_sector}
+            </Text>
+          )}
+          {client.vat_number && (
+            <Text className="text-xs text-muted mt-0.5">
+              {t("vatNumber")}: {client.vat_number}
+            </Text>
+          )}
         </View>
 
         <View className="bg-white rounded-xl p-4 mb-3">

@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, FlatList } from "react-native"
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useI18n } from "@/lib/i18n";
-import type { Client } from "@/types";
+import { useArtisan } from "@/hooks/useArtisan";
+import type { Client, ClientType } from "@/types";
 
 interface ClientAutocompleteProps {
   artisanId: string;
@@ -17,12 +18,16 @@ export function ClientAutocomplete({
   onSelect,
 }: ClientAutocompleteProps) {
   const { t } = useI18n();
+  const { artisan } = useArtisan();
+  const isIT = artisan?.country_code === "IT";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Client[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [newClientType, setNewClientType] = useState<ClientType>("privato");
+  const [newBusinessSector, setNewBusinessSector] = useState("");
 
   useEffect(() => {
     if (query.length < 2) {
@@ -53,13 +58,22 @@ export function ClientAutocomplete({
   const handleCreateNew = async () => {
     if (!newName.trim()) return;
 
+    const insertData: Record<string, unknown> = {
+      artisan_id: artisanId,
+      name: newName.trim(),
+      phone: newPhone.trim() || null,
+    };
+
+    if (isIT) {
+      insertData.client_type = newClientType;
+      if (newBusinessSector.trim()) {
+        insertData.business_sector = newBusinessSector.trim();
+      }
+    }
+
     const { data, error } = await supabase
       .from("clients")
-      .insert({
-        artisan_id: artisanId,
-        name: newName.trim(),
-        phone: newPhone.trim() || null,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -69,16 +83,25 @@ export function ClientAutocomplete({
       setShowNewForm(false);
       setNewName("");
       setNewPhone("");
+      setNewClientType("privato");
+      setNewBusinessSector("");
     }
   };
 
   if (selectedClient) {
     return (
       <View className="flex-row items-center bg-blue-50 rounded-xl px-4 py-3">
-        <MaterialCommunityIcons name="account" size={20} color="#2563eb" />
-        <Text className="flex-1 ml-2 text-base font-medium">
-          {selectedClient.name}
-        </Text>
+        <MaterialCommunityIcons
+          name={selectedClient.client_type === "azienda" ? "domain" : "account"}
+          size={20}
+          color="#2563eb"
+        />
+        <View className="flex-1 ml-2">
+          <Text className="text-base font-medium">{selectedClient.name}</Text>
+          {isIT && selectedClient.client_type === "azienda" && (
+            <Text className="text-xs text-primary">{t("clientAzienda")}</Text>
+          )}
+        </View>
         <TouchableOpacity
           onPress={() => {
             onSelect(null);
@@ -161,6 +184,57 @@ export function ClientAutocomplete({
                 onChangeText={setNewPhone}
                 keyboardType="phone-pad"
               />
+              {isIT && (
+                <>
+                  <View className="flex-row gap-2 mb-2">
+                    <TouchableOpacity
+                      onPress={() => setNewClientType("privato")}
+                      className={`flex-1 rounded-lg py-2 items-center border ${
+                        newClientType === "privato"
+                          ? "bg-blue-50 border-primary"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm ${
+                          newClientType === "privato"
+                            ? "text-primary font-semibold"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {t("clientPrivato")}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setNewClientType("azienda")}
+                      className={`flex-1 rounded-lg py-2 items-center border ${
+                        newClientType === "azienda"
+                          ? "bg-blue-50 border-primary"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm ${
+                          newClientType === "azienda"
+                            ? "text-primary font-semibold"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {t("clientAzienda")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {newClientType === "azienda" && (
+                    <TextInput
+                      className="border border-gray-300 rounded-lg px-3 py-2 mb-2 text-sm"
+                      placeholder={t("businessSectorOptional")}
+                      placeholderTextColor="#9ca3af"
+                      value={newBusinessSector}
+                      onChangeText={setNewBusinessSector}
+                    />
+                  )}
+                </>
+              )}
               <View className="flex-row gap-2">
                 <TouchableOpacity
                   onPress={() => setShowNewForm(false)}
