@@ -1,6 +1,6 @@
 import { Component, ReactNode } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
-import * as Sentry from "@sentry/react-native";
+import { captureException } from "@/lib/sentry";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 interface Props {
@@ -39,11 +39,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error to Sentry
-    Sentry.captureException(error, {
-      contexts: {
-        react: {
-          componentStack: errorInfo.componentStack,
-        },
+    captureException(error, {
+      extra: {
+        componentStack: errorInfo.componentStack,
       },
     });
 

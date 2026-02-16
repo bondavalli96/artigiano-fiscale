@@ -16,7 +16,7 @@ import { useColorScheme } from "@/components/useColorScheme";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PushNotificationRegistrar } from "@/components/PushNotificationRegistrar";
 import { I18nProvider } from "@/lib/i18n";
-import { initializeSentry } from "@/lib/sentry";
+import { initializeSentry, setUser } from "@/lib/sentry";
 import { useAuth } from "@/hooks/useAuth";
 
 // Initialize Sentry BEFORE app renders
@@ -60,17 +60,13 @@ function RootLayoutNav() {
   // Update Sentry user context when auth changes
   useEffect(() => {
     if (user && artisan) {
-      import("@sentry/react-native").then((Sentry) => {
-        Sentry.setUser({
-          id: user.id,
-          email: user.email,
-          username: artisan.business_name,
-        });
+      setUser({
+        id: user.id,
+        email: user.email,
+        username: artisan.business_name,
       });
     } else {
-      import("@sentry/react-native").then((Sentry) => {
-        Sentry.setUser(null);
-      });
+      setUser(null);
     }
   }, [user, artisan]);
 

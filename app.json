@@ -67,14 +67,6 @@
           "color": "#2563eb"
         }
       ],
-      [
-        "@sentry/react-native/expo",
-        {
-          "organization": "artigianoai",
-          "project": "artigiano-app",
-          "url": "https://sentry.io/"
-        }
-      ],
       "expo-asset"
     ],
     "experiments": {
