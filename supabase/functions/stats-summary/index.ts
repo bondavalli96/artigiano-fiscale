@@ -17,10 +17,8 @@ function pctChange(current: number, previous: number): number | null {
 function extractCity(address: string | null): string {
   if (!address) return "N/D";
   const parts = address.split(",").map((p) => p.trim());
-  // Try to get city from typical Italian address format: "Via Roma 1, 20100 Milano"
   if (parts.length >= 2) {
     const lastPart = parts[parts.length - 1];
-    // Remove CAP if present (5 digits at start)
     return lastPart.replace(/^\d{5}\s*/, "").trim() || "N/D";
   }
   return address.trim();
@@ -77,7 +75,6 @@ Deno.serve(async (req) => {
       lastYearStart = previousStart;
       lastYearEnd = previousEnd;
     } else {
-      // month (default)
       currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
       previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       previousEnd = new Date(
@@ -156,7 +153,31 @@ Deno.serve(async (req) => {
       .gte("created_at", lastYearStart.toISOString())
       .lte("created_at", lastYearEnd.toISOString());
 
-    // --- CALCULATE ---
+    // --- FISCAL STATS QUERIES ---
+
+    // SdI status breakdown (all invoices, not just current period)
+    const { data: allInvoices } = await supabase
+      .from("invoices_active")
+      .select("sdi_status, digital_stamp, digital_stamp_amount, reverse_charge, status, created_at, paid_at, payment_due, total")
+      .eq("artisan_id", artisanId);
+
+    // Fiscal profile for tax estimate
+    const { data: fiscalProfile } = await supabase
+      .from("fiscal_profiles")
+      .select("regime, coefficient")
+      .eq("artisan_id", artisanId)
+      .single();
+
+    // Fiscal year tracking
+    const currentYear = now.getFullYear();
+    const { data: yearTracking } = await supabase
+      .from("fiscal_year_tracking")
+      .select("total_revenue, total_expenses, invoice_count")
+      .eq("artisan_id", artisanId)
+      .eq("year", currentYear)
+      .single();
+
+    // --- CALCULATE ORIGINAL STATS ---
     const income = sumTotal(curIncome);
     const expenses = sumTotal(curExpenses);
     const margin = income - expenses;
@@ -187,7 +208,7 @@ Deno.serve(async (req) => {
       .map(([category, total]) => ({ category, total }))
       .sort((a, b) => b.total - a.total);
 
-    // Income by area (from client addresses)
+    // Income by area
     const areaMap: Record<string, { total: number; count: number }> = {};
     for (const inv of curIncome || []) {
       const client = (inv as any).client;
@@ -214,6 +235,116 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
+    // --- CALCULATE FISCAL STATS ---
+
+    // SdI status breakdown
+    const sdiBreakdown = {
+      delivered: 0,
+      accepted: 0,
+      sent: 0,
+      not_sent: 0,
+      rejected: 0,
+      total: (allInvoices || []).length,
+    };
+    for (const inv of allInvoices || []) {
+      const s = (inv as any).sdi_status || "not_sent";
+      if (s === "delivered") sdiBreakdown.delivered++;
+      else if (s === "accepted") sdiBreakdown.accepted++;
+      else if (s === "sent") sdiBreakdown.sent++;
+      else if (s === "rejected") sdiBreakdown.rejected++;
+      else sdiBreakdown.not_sent++;
+    }
+
+    // Marca da bollo stats
+    let bolloCount = 0;
+    let bolloTotal = 0;
+    for (const inv of allInvoices || []) {
+      if ((inv as any).digital_stamp) {
+        bolloCount++;
+        bolloTotal += (inv as any).digital_stamp_amount || 2.0;
+      }
+    }
+
+    // Reverse charge stats
+    let reverseChargeCount = 0;
+    let reverseChargeTotal = 0;
+    for (const inv of allInvoices || []) {
+      if ((inv as any).reverse_charge) {
+        reverseChargeCount++;
+        reverseChargeTotal += (inv as any).total || 0;
+      }
+    }
+
+    // Collection performance (DSO, paid on time, outstanding)
+    let totalDaysToPayment = 0;
+    let paidCount = 0;
+    let paidOnTimeCount = 0;
+    let outstandingAmount = 0;
+    let overdueAmount = 0;
+    let overdueCount = 0;
+
+    for (const inv of allInvoices || []) {
+      const status = (inv as any).status;
+      const total = (inv as any).total || 0;
+
+      if (status === "paid" && (inv as any).paid_at && (inv as any).created_at) {
+        const created = new Date((inv as any).created_at);
+        const paid = new Date((inv as any).paid_at);
+        const days = Math.max(0, Math.round((paid.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+        totalDaysToPayment += days;
+        paidCount++;
+
+        // Check if paid before due date
+        if ((inv as any).payment_due) {
+          const due = new Date((inv as any).payment_due);
+          if (paid <= due) paidOnTimeCount++;
+        } else {
+          paidOnTimeCount++; // No due date = considered on time
+        }
+      } else if (status === "sent" || status === "overdue") {
+        outstandingAmount += total;
+        if (status === "overdue") {
+          overdueAmount += total;
+          overdueCount++;
+        }
+      }
+    }
+
+    const avgDaysToPayment = paidCount > 0 ? Math.round(totalDaysToPayment / paidCount) : null;
+    const paidOnTimeRate = paidCount > 0 ? Math.round((paidOnTimeCount / paidCount) * 100) : null;
+
+    // Tax estimate (forfettario)
+    let taxEstimate = null;
+    if (fiscalProfile?.regime === "forfettario" && yearTracking) {
+      const coefficient = fiscalProfile.coefficient || 67; // default idraulico
+      const grossRevenue = yearTracking.total_revenue || 0;
+      const taxableIncome = grossRevenue * (coefficient / 100);
+      // 15% imposta sostitutiva (5% first 5 years — we default to 15%)
+      const taxRate = 15;
+      const estimatedTax = taxableIncome * (taxRate / 100);
+      // INPS contributi (24.48% for artigiani/commercianti on taxable income)
+      const inpsRate = 24.48;
+      const estimatedInps = taxableIncome * (inpsRate / 100);
+      const totalTaxBurden = estimatedTax + estimatedInps;
+      const monthsLeft = 12 - now.getMonth();
+      const monthlySetAside = monthsLeft > 0 ? totalTaxBurden / monthsLeft : totalTaxBurden;
+
+      taxEstimate = {
+        regime: "forfettario",
+        grossRevenue,
+        coefficient,
+        taxableIncome: Math.round(taxableIncome * 100) / 100,
+        taxRate,
+        estimatedTax: Math.round(estimatedTax * 100) / 100,
+        inpsRate,
+        estimatedInps: Math.round(estimatedInps * 100) / 100,
+        totalTaxBurden: Math.round(totalTaxBurden * 100) / 100,
+        monthlySetAside: Math.round(monthlySetAside * 100) / 100,
+        revenueLimit: 85000,
+        revenuePercent: Math.min(Math.round((grossRevenue / 85000) * 100), 100),
+      };
+    }
+
     // --- AI INSIGHT ---
     const periodLabel =
       locale === "en"
@@ -222,15 +353,32 @@ Deno.serve(async (req) => {
           : period === "quarter"
           ? "quarter"
           : "month"
+        : locale === "es"
+        ? period === "year"
+          ? "ano"
+          : period === "quarter"
+          ? "trimestre"
+          : "mes"
+        : locale === "pt"
+        ? period === "year"
+          ? "ano"
+          : period === "quarter"
+          ? "trimestre"
+          : "mes"
         : period === "year"
         ? "anno"
         : period === "quarter"
         ? "trimestre"
         : "mese";
 
-    const lang = locale === "en" ? "English" : "Italian";
+    const langMap: Record<string, string> = {
+      it: "Italian",
+      en: "English",
+      es: "Spanish",
+      pt: "Portuguese",
+    };
+    const lang = langMap[locale] || "Italian";
 
-    // AI insight - wrapped in its own try/catch so stats still return if AI fails
     let aiInsight = "";
     try {
       const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -249,22 +397,26 @@ Deno.serve(async (req) => {
               content: `Analizza questi dati finanziari di un artigiano e dai un breve insight in ${lang}.
 
 Periodo: questo ${periodLabel}
-- Fatturato: €${income.toFixed(2)} (${invoiceCount} fatture)
-- Costi: €${expenses.toFixed(2)}
-- Margine: €${margin.toFixed(2)}
+- Fatturato: EUR${income.toFixed(2)} (${invoiceCount} fatture)
+- Costi: EUR${expenses.toFixed(2)}
+- Margine: EUR${margin.toFixed(2)}
 - Tasso accettazione preventivi: ${acceptanceRate}%
+${avgDaysToPayment !== null ? `- Tempo medio incasso: ${avgDaysToPayment} giorni` : ""}
+${paidOnTimeRate !== null ? `- Pagati puntuali: ${paidOnTimeRate}%` : ""}
+${outstandingAmount > 0 ? `- Ancora da incassare: EUR${outstandingAmount.toFixed(2)}` : ""}
+${taxEstimate ? `- Regime forfettario, stima tasse annue: EUR${taxEstimate.totalTaxBurden.toFixed(2)}` : ""}
 
 Periodo precedente:
-- Fatturato: €${prevIncomeTotal.toFixed(2)}
-- Costi: €${prevExpensesTotal.toFixed(2)}
-- Margine: €${prevMargin.toFixed(2)}
+- Fatturato: EUR${prevIncomeTotal.toFixed(2)}
+- Costi: EUR${prevExpensesTotal.toFixed(2)}
+- Margine: EUR${prevMargin.toFixed(2)}
 
 Stesso periodo anno scorso:
-- Fatturato: €${lyIncomeTotal.toFixed(2)}
-- Costi: €${lyExpensesTotal.toFixed(2)}
+- Fatturato: EUR${lyIncomeTotal.toFixed(2)}
+- Costi: EUR${lyExpensesTotal.toFixed(2)}
 
-${topClients.length > 0 ? `Top clienti: ${topClients.map((c) => `${c.name} (€${c.total})`).join(", ")}` : ""}
-${byArea.length > 0 ? `Zone: ${byArea.map((a) => `${a.area} (€${a.total})`).join(", ")}` : ""}
+${topClients.length > 0 ? `Top clienti: ${topClients.map((c) => `${c.name} (EUR${c.total})`).join(", ")}` : ""}
+${byArea.length > 0 ? `Zone: ${byArea.map((a) => `${a.area} (EUR${a.total})`).join(", ")}` : ""}
 
 Scrivi 2-3 frasi utili, come parleresti a un amico. Confronta i periodi, evidenzia trend e suggerisci azioni concrete.
 Rispondi SOLO con il testo dell'insight, niente JSON.`,
@@ -278,7 +430,7 @@ Rispondi SOLO con il testo dell'insight, niente JSON.`,
         aiInsight = aiData.content?.[0]?.text || "";
       }
     } catch (_aiErr) {
-      // AI insight is optional - stats data will still be returned
+      // AI insight is optional
     }
 
     return new Response(
@@ -318,6 +470,21 @@ Rispondi SOLO con il testo dell'insight, niente JSON.`,
         byArea,
         topClients,
         aiInsight,
+        // Fiscal stats
+        fiscal: {
+          sdiBreakdown,
+          bollo: { count: bolloCount, total: bolloTotal },
+          reverseCharge: { count: reverseChargeCount, total: reverseChargeTotal },
+          collection: {
+            avgDaysToPayment,
+            paidOnTimeRate,
+            outstandingAmount,
+            overdueAmount,
+            overdueCount,
+            paidCount,
+          },
+          taxEstimate,
+        },
       }),
       { headers: { "Content-Type": "application/json" } }
     );
