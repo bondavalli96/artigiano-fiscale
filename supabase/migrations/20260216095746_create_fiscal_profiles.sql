@@ -5,7 +5,7 @@
 -- Fiscal profile per artisan (regime, SdI provider, etc.)
 CREATE TABLE fiscal_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  artisan_id UUID REFERENCES artisans(id) ON DELETE CASCADE,
+  artisan_id UUID REFERENCES artisans(id) ON DELETE CASCADE UNIQUE,
   regime TEXT NOT NULL DEFAULT 'ordinario', -- ordinario, forfettario, minimi
   coefficient NUMERIC, -- coefficiente di redditività forfettario
   annual_revenue_limit NUMERIC DEFAULT 85000.00,
