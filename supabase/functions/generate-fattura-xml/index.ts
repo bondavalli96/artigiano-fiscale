@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
   <FatturaElettronicaBody>
     <DatiGenerali>
       <DatiGeneraliDocumento>
-        <TipoDocumento>${invoice.reverse_charge ? "TD17" : "TD01"}</TipoDocumento>
+        <TipoDocumento>TD01</TipoDocumento>
         <Divisa>EUR</Divisa>
         <Data>${invoiceDate}</Data>
         <Numero>${escapeXml(invoice.invoice_number)}</Numero>

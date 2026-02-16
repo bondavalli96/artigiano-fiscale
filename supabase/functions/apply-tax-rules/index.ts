@@ -220,14 +220,10 @@ function applyTaxRules(input: TaxRulesInput): TaxRulesOutput {
       "Operazione soggetta al meccanismo dell'inversione contabile (Reverse Charge) ai sensi dell'art. 17, comma 6, lett. a), del DPR n. 633/72"
     );
 
-    // Anche con reverse charge, se non c'e IVA e importo > 77.47, serve bollo
-    if (amount > 77.47) {
-      result.digital_stamp = true;
-      result.digital_stamp_amount = 2.0;
-      result.mandatory_notes.push(
-        "Imposta di bollo da 2,00 euro assolta in modo virtuale ai sensi del D.M. 17 giugno 2014"
-      );
-    }
+    // Reverse charge: NO marca da bollo — l'operazione e soggetta ad IVA
+    // (l'IVA e versata dal cessionario/committente, non dal cedente/prestatore)
+    // Rif: Agenzia Entrate - le fatture in inversione contabile non sono
+    // soggette ad imposta di bollo
 
     result.warnings.push(
       "Reverse Charge applicato: il tuo cliente (azienda) versera l'IVA al posto tuo"
