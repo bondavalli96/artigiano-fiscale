@@ -16,6 +16,7 @@ import { getGreeting, formatCurrency, formatDateShort } from "@/lib/utils/format
 import { useI18n } from "@/lib/i18n";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { AISuggestionBanner } from "@/components/AISuggestionBanner";
+import { ForfettarioWidget } from "@/components/ForfettarioWidget";
 import { EmptyState } from "@/components/EmptyState";
 import type { InvoiceActive } from "@/types";
 
@@ -160,6 +161,13 @@ export default function DashboardScreen() {
         <View className="px-5 mb-2">
           <AISuggestionBanner maxSuggestions={1} />
         </View>
+
+        {/* Forfettario widget (IT only) */}
+        {artisan.country_code === "IT" && (
+          <View className="px-5 mb-3">
+            <ForfettarioWidget artisanId={artisan.id} />
+          </View>
+        )}
 
         {/* Stats cards */}
         <View className="px-5 flex-row gap-3 mb-4">

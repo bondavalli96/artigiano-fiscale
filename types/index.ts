@@ -59,6 +59,8 @@ export interface PriceListItem {
   created_at: string;
 }
 
+export type ClientType = "privato" | "azienda";
+
 export interface Client {
   id: string;
   artisan_id: string;
@@ -68,6 +70,11 @@ export interface Client {
   address: string | null;
   notes: string | null;
   reliability_score: number;
+  client_type: ClientType;
+  business_sector: string | null;
+  vat_number: string | null;
+  sdi_code: string | null;
+  pec_address: string | null;
   created_at: string;
 }
 
@@ -156,6 +163,8 @@ export interface Quote {
 
 export type InvoiceActiveStatus = "draft" | "sent" | "paid" | "overdue";
 
+export type SdiStatus = "not_sent" | "sent" | "delivered" | "rejected" | "accepted";
+
 export interface InvoiceActive {
   id: string;
   quote_id: string | null;
@@ -173,6 +182,14 @@ export interface InvoiceActive {
   pdf_url: string | null;
   reminders_sent: number;
   last_reminder_at: string | null;
+  reverse_charge: boolean;
+  reverse_charge_article: string | null;
+  digital_stamp: boolean;
+  digital_stamp_amount: number;
+  fiscal_notes: string[] | null;
+  sdi_status: SdiStatus;
+  sdi_id: string | null;
+  xml_url: string | null;
   created_at: string;
   client?: Client;
 }
@@ -279,4 +296,56 @@ export interface Trade {
   id: string;
   label: string;
   icon: string;
+}
+
+// --- Fiscal Compliance Types ---
+
+export type FiscalRegime = "ordinario" | "forfettario" | "minimo";
+
+export type SdiProvider = "fatture_in_cloud" | "aruba" | "fattura24";
+
+export interface FiscalProfile {
+  id: string;
+  artisan_id: string;
+  regime: FiscalRegime;
+  coefficient: number | null;
+  annual_revenue_limit: number;
+  sdi_provider: SdiProvider | null;
+  sdi_provider_api_key_encrypted: string | null;
+  sdi_code: string;
+  pec_address: string | null;
+  digital_stamp_enabled: boolean;
+  reverse_charge_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FiscalYearTracking {
+  id: string;
+  artisan_id: string;
+  year: number;
+  total_revenue: number;
+  total_expenses: number;
+  invoice_count: number;
+  last_updated: string;
+}
+
+export interface TaxRulesInput {
+  regime_fiscale: FiscalRegime;
+  client_type: ClientType;
+  business_sector: string | null;
+  intervention_type: string | null;
+  amount: number;
+  artisan_trade: string;
+}
+
+export interface TaxRulesOutput {
+  vat_rate: number;
+  vat_amount: number;
+  reverse_charge: boolean;
+  reverse_charge_article: string | null;
+  digital_stamp: boolean;
+  digital_stamp_amount: number;
+  mandatory_notes: string[];
+  warnings: string[];
 }

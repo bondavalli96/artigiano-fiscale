@@ -52,6 +52,11 @@ export default function OnboardingScreen() {
   const [logoUri, setLogoUri] = useState<string | null>(null);
   const [signatureUri, setSignatureUri] = useState<string | null>(null);
 
+  // Step 2: Fiscal regime (IT only)
+  const [fiscalRegime, setFiscalRegime] = useState<"ordinario" | "forfettario" | "">(
+    ""
+  );
+
   // Step 3: Input preference
   const [preferredInput, setPreferredInput] = useState<"voice" | "text">(
     "text"
@@ -63,7 +68,7 @@ export default function OnboardingScreen() {
   const [customDescription, setCustomDescription] = useState("");
   const [customUnit, setCustomUnit] = useState("ore");
 
-  const totalSteps = 4;
+  const totalSteps = countryCode === "IT" ? 5 : 4;
 
   useEffect(() => {
     const loadUserEmail = async () => {
@@ -120,11 +125,20 @@ export default function OnboardingScreen() {
     return urlData.publicUrl;
   };
 
+  // The step that triggers price list loading depends on whether the fiscal step is shown
+  const priceListTriggerStep = countryCode === "IT" ? 3 : 2;
+
   const goNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step < totalSteps - 1) {
-      setStep(step + 1);
-      if (step === 2) fetchPriceList();
+      const nextStep = step + 1;
+      // Skip fiscal regime step for non-IT countries
+      if (countryCode !== "IT" && nextStep === 2) {
+        setStep(3);
+        return;
+      }
+      setStep(nextStep);
+      if (step === priceListTriggerStep) fetchPriceList();
     }
   };
 
@@ -246,6 +260,17 @@ export default function OnboardingScreen() {
         }
       }
 
+      // Save fiscal profile (IT only)
+      if (artisan && countryCode === "IT" && fiscalRegime) {
+        const { error: fiscalError } = await supabase
+          .from("fiscal_profiles")
+          .insert({
+            artisan_id: artisan.id,
+            regime: fiscalRegime,
+          });
+        if (fiscalError) console.error("Fiscal profile save error:", fiscalError);
+      }
+
       // Save selected price list items
       const selectedItems = priceItems.filter((item) => item.selected);
       if (selectedItems.length > 0 && artisan) {
@@ -279,9 +304,11 @@ export default function OnboardingScreen() {
         return selectedTrade !== "";
       case 1:
         return businessName.trim() !== "" && businessEmail.trim() !== "";
-      case 2:
+      case 2: // Fiscal regime (IT) or Input preference (non-IT)
+        return countryCode === "IT" ? fiscalRegime !== "" : true;
+      case 3: // Input preference (IT) or Price list (non-IT)
         return true;
-      case 3:
+      case 4: // Price list (IT only)
         return true;
       default:
         return false;
@@ -615,8 +642,87 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {/* Step 2: Input preference */}
-          {step === 2 && (
+          {/* Step 2: Fiscal Regime (IT only) */}
+          {step === 2 && countryCode === "IT" && (
+            <View>
+              <Text className="text-2xl font-bold mb-2">
+                {t("fiscalRegime")}
+              </Text>
+              <Text className="text-muted mb-6">
+                {t("fiscalRegimeDesc")}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setFiscalRegime("ordinario");
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                className={`p-5 rounded-xl border-2 mb-4 ${
+                  fiscalRegime === "ordinario"
+                    ? "border-primary bg-blue-50"
+                    : "border-gray-200"
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <MaterialCommunityIcons
+                    name="file-document-outline"
+                    size={28}
+                    color={fiscalRegime === "ordinario" ? "#2563eb" : "#6b7280"}
+                  />
+                  <View className="ml-3 flex-1">
+                    <Text className={`text-lg font-bold ${
+                      fiscalRegime === "ordinario" ? "text-primary" : "text-gray-800"
+                    }`}>
+                      {t("regimeOrdinario")}
+                    </Text>
+                    <Text className="text-muted text-sm mt-0.5">
+                      {t("regimeOrdinarioDesc")}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setFiscalRegime("forfettario");
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                className={`p-5 rounded-xl border-2 mb-4 ${
+                  fiscalRegime === "forfettario"
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-200"
+                }`}
+              >
+                <View className="flex-row items-center">
+                  <MaterialCommunityIcons
+                    name="leaf"
+                    size={28}
+                    color={fiscalRegime === "forfettario" ? "#16a34a" : "#6b7280"}
+                  />
+                  <View className="ml-3 flex-1">
+                    <Text className={`text-lg font-bold ${
+                      fiscalRegime === "forfettario" ? "text-green-700" : "text-gray-800"
+                    }`}>
+                      {t("regimeForfettario")}
+                    </Text>
+                    <Text className="text-muted text-sm mt-0.5">
+                      {t("regimeForfettarioDesc")}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <View className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex-row items-start">
+                <MaterialCommunityIcons name="information-outline" size={18} color="#d97706" />
+                <Text className="text-xs text-amber-800 ml-2 flex-1">
+                  {t("regimeNonSoDesc")}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Step 2 (non-IT) / Step 3 (IT): Input preference */}
+          {((step === 2 && countryCode !== "IT") || (step === 3 && countryCode === "IT")) && (
             <View>
               <Text className="text-2xl font-bold mb-2">
                 {t("inputPreference")}
@@ -663,8 +769,8 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {/* Step 3: AI Price list */}
-          {step === 3 && (
+          {/* Step 3 (non-IT) / Step 4 (IT): AI Price list */}
+          {((step === 3 && countryCode !== "IT") || (step === 4 && countryCode === "IT")) && (
             <View>
               <Text className="text-2xl font-bold mb-2">
                 {t("yourPriceList")}

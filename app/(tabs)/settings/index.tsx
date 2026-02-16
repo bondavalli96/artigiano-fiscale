@@ -54,6 +54,28 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {artisan?.country_code === "IT" && (
+          <TouchableOpacity
+            onPress={() => router.push("/(tabs)/settings/fiscal" as any)}
+            className="bg-white mx-4 rounded-xl p-4 mb-2 flex-row items-center"
+          >
+            <MaterialCommunityIcons
+              name="shield-check-outline"
+              size={24}
+              color="#16a34a"
+            />
+            <View className="flex-1 ml-3">
+              <Text className="text-base">{t("fiscalRegime")}</Text>
+              <Text className="text-xs text-muted">{t("fiscalCompliance")}</Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color="#d1d5db"
+            />
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           onPress={() => router.push("/(tabs)/settings/profile" as any)}
           className="bg-white mx-4 rounded-xl p-4 mb-2 flex-row items-center"
