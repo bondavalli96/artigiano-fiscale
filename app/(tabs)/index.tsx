@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { AISuggestionBanner } from "@/components/AISuggestionBanner";
 import { ForfettarioWidget } from "@/components/ForfettarioWidget";
+import { ComplianceWidget } from "@/components/ComplianceWidget";
 import { EmptyState } from "@/components/EmptyState";
 import type { InvoiceActive } from "@/types";
 
@@ -166,6 +167,13 @@ export default function DashboardScreen() {
         {artisan.country_code === "IT" && (
           <View className="px-5 mb-3">
             <ForfettarioWidget artisanId={artisan.id} />
+          </View>
+        )}
+
+        {/* Compliance widget (IT only) */}
+        {artisan.country_code === "IT" && (
+          <View className="px-5 mb-3">
+            <ComplianceWidget artisanId={artisan.id} />
           </View>
         )}
 

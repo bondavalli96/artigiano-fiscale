@@ -541,6 +541,23 @@ export default function InvoiceActiveDetailScreen() {
                 )}
               </TouchableOpacity>
             )}
+            {(invoice.sdi_status === "delivered" || invoice.sdi_status === "accepted") && (
+              <View className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 flex-row items-center">
+                <MaterialCommunityIcons
+                  name="shield-check"
+                  size={18}
+                  color="#16a34a"
+                />
+                <View className="flex-1 ml-2">
+                  <Text className="text-xs font-semibold text-green-800">
+                    {t("conservedBadge")}
+                  </Text>
+                  <Text className="text-xs text-green-700 mt-0.5">
+                    {t("conservedDesc")}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
